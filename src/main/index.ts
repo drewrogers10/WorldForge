@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { app, BrowserWindow } from 'electron';
 import { createCharacterService } from '@backend/services/character-service';
+import { createItemService } from '@backend/services/item-service';
 import { createLocationService } from '@backend/services/location-service';
 import { createDatabase } from '@db/client';
 import { runMigrations } from '@db/migrate';
@@ -58,10 +59,12 @@ function initializeBackend(): void {
   runMigrations(db, resolveMigrationsPath());
 
   const characterService = createCharacterService(db);
+  const itemService = createItemService(db);
   const locationService = createLocationService(db);
 
   registerIpcHandlers({
     characterService,
+    itemService,
     locationService,
   });
 }

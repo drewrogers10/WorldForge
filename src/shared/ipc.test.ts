@@ -71,4 +71,63 @@ describe('ipc contracts', () => {
       }),
     ).toThrow();
   });
+
+  it('validates item payloads and assignment rules', () => {
+    const createItemInput = ipcContracts.createItem.input.parse({
+      name: '  Storm Lens  ',
+      summary: '  A polished navigators lens.  ',
+      quantity: 2,
+      ownerCharacterId: 4,
+      locationId: null,
+    });
+
+    expect(createItemInput).toEqual({
+      name: 'Storm Lens',
+      summary: 'A polished navigators lens.',
+      quantity: 2,
+      ownerCharacterId: 4,
+      locationId: null,
+    });
+
+    expect(
+      ipcContracts.getItem.output.parse({
+        id: 7,
+        name: 'Storm Lens',
+        summary: 'A polished navigators lens.',
+        quantity: 2,
+        ownerCharacterId: 4,
+        locationId: null,
+        createdAt: '2026-03-07T10:00:00.000Z',
+        updatedAt: '2026-03-07T12:00:00.000Z',
+      }),
+    ).toMatchObject({
+      id: 7,
+      quantity: 2,
+      ownerCharacterId: 4,
+    });
+
+    expect(() =>
+      ipcContracts.createItem.input.parse({
+        name: 'Conflicted Relic',
+        summary: '',
+        quantity: 1,
+        ownerCharacterId: 1,
+        locationId: 2,
+      }),
+    ).toThrow('Item cannot be assigned to both a character and a location.');
+
+    expect(() =>
+      ipcContracts.updateItem.input.parse({
+        id: 3,
+        name: 'Broken Count',
+        summary: '',
+        quantity: -1,
+        ownerCharacterId: null,
+        locationId: null,
+      }),
+    ).toThrow();
+
+    expect(() => ipcContracts.deleteItem.input.parse({ id: 0 })).toThrow();
+    expect(ipcContracts.deleteItem.output.parse(undefined)).toBeUndefined();
+  });
 });

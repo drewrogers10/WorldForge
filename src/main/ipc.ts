@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron';
 import type { CharacterService } from '@backend/services/character-service';
+import type { ItemService } from '@backend/services/item-service';
 import type { LocationService } from '@backend/services/location-service';
 import {
   ipcContracts,
@@ -24,6 +25,7 @@ function registerHandler<K extends IpcContractKey>(
 export function registerIpcHandlers(
   services: {
     characterService: CharacterService;
+    itemService: ItemService;
     locationService: LocationService;
   },
 ): void {
@@ -50,4 +52,9 @@ export function registerIpcHandlers(
   registerHandler('updateLocation', (input) =>
     services.locationService.updateLocation(input),
   );
+  registerHandler('listItems', () => services.itemService.listItems());
+  registerHandler('getItem', (input) => services.itemService.getItem(input));
+  registerHandler('createItem', (input) => services.itemService.createItem(input));
+  registerHandler('updateItem', (input) => services.itemService.updateItem(input));
+  registerHandler('deleteItem', (input) => services.itemService.deleteItem(input));
 }

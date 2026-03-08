@@ -15,6 +15,13 @@
       "when": 1772935490276,
       "tag": "0001_add-locations-and-character-links",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1772937008342,
+      "tag": "0002_add-items",
+      "breakpoints": true
     }
   ]
 }

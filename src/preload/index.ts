@@ -27,6 +27,11 @@ const api: WorldForgeApi = {
   getLocation: (input) => invoke('getLocation', input),
   createLocation: (input) => invoke('createLocation', input),
   updateLocation: (input) => invoke('updateLocation', input),
+  listItems: () => invoke('listItems', undefined),
+  getItem: (input) => invoke('getItem', input),
+  createItem: (input) => invoke('createItem', input),
+  updateItem: (input) => invoke('updateItem', input),
+  deleteItem: (input) => invoke('deleteItem', input),
 };
 
 contextBridge.exposeInMainWorld('worldForge', api);

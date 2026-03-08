@@ -11,6 +11,10 @@ type ForeignKeyRow = {
   on_delete: string;
 };
 
+type SqlDefinitionRow = {
+  sql: string;
+};
+
 describe('database migrations', () => {
   const contexts: Array<ReturnType<typeof createTestDatabaseContext>> = [];
 
@@ -20,7 +24,7 @@ describe('database migrations', () => {
     }
   });
 
-  it('creates the location table and character location link on startup', () => {
+  it('creates the location, character, and item tables with expected links', () => {
     const context = createTestDatabaseContext();
     contexts.push(context);
 
@@ -30,9 +34,18 @@ describe('database migrations', () => {
     const characterColumns = context.client
       .prepare("PRAGMA table_info('characters')")
       .all() as TableInfoRow[];
-    const foreignKeys = context.client
+    const itemColumns = context.client
+      .prepare("PRAGMA table_info('items')")
+      .all() as TableInfoRow[];
+    const characterForeignKeys = context.client
       .prepare("PRAGMA foreign_key_list('characters')")
       .all() as ForeignKeyRow[];
+    const itemForeignKeys = context.client
+      .prepare("PRAGMA foreign_key_list('items')")
+      .all() as ForeignKeyRow[];
+    const itemTableDefinition = context.client
+      .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'items'")
+      .get() as SqlDefinitionRow | undefined;
 
     expect(locationColumns.map((column) => column.name)).toEqual([
       'id',
@@ -41,12 +54,38 @@ describe('database migrations', () => {
       'created_at',
       'updated_at',
     ]);
+    expect(itemColumns.map((column) => column.name)).toEqual([
+      'id',
+      'name',
+      'summary',
+      'quantity',
+      'owner_character_id',
+      'location_id',
+      'created_at',
+      'updated_at',
+    ]);
     expect(characterColumns.some((column) => column.name === 'location_id')).toBe(true);
-    expect(foreignKeys).toHaveLength(1);
-    expect(foreignKeys[0]).toMatchObject({
+    expect(characterForeignKeys).toHaveLength(1);
+    expect(characterForeignKeys[0]).toMatchObject({
       table: 'locations',
       from: 'location_id',
     });
-    expect(String(foreignKeys[0]?.on_delete).toUpperCase()).toBe('SET NULL');
+    expect(String(characterForeignKeys[0]?.on_delete).toUpperCase()).toBe('SET NULL');
+    expect(itemForeignKeys).toHaveLength(2);
+    expect(itemForeignKeys).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          table: 'characters',
+          from: 'owner_character_id',
+          on_delete: 'SET NULL',
+        }),
+        expect.objectContaining({
+          table: 'locations',
+          from: 'location_id',
+          on_delete: 'SET NULL',
+        }),
+      ]),
+    );
+    expect(itemTableDefinition?.sql).toContain('CHECK("items"."owner_character_id" IS NULL OR "items"."location_id" IS NULL)');
   });
 });

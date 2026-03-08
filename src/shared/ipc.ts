@@ -12,6 +12,13 @@ import {
   locationSchema,
   updateLocationInputSchema,
 } from './location';
+import {
+  createItemInputSchema,
+  deleteItemInputSchema,
+  getItemInputSchema,
+  itemSchema,
+  updateItemInputSchema,
+} from './item';
 
 type IpcContract<TInput extends ZodTypeAny, TOutput extends ZodTypeAny> = {
   channel: string;
@@ -73,6 +80,11 @@ export const ipcContracts = {
     updateLocationInputSchema,
     locationSchema,
   ),
+  listItems: createContract('items:list', z.void(), z.array(itemSchema)),
+  getItem: createContract('items:get', getItemInputSchema, itemSchema.nullable()),
+  createItem: createContract('items:create', createItemInputSchema, itemSchema),
+  updateItem: createContract('items:update', updateItemInputSchema, itemSchema),
+  deleteItem: createContract('items:delete', deleteItemInputSchema, z.void()),
 } as const;
 
 export type IpcContractKey = keyof typeof ipcContracts;

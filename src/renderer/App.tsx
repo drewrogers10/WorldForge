@@ -1,38 +1,18 @@
 import { useEffect, useState } from 'react';
+import type { FormEvent } from 'react';
 import type { Character } from '@shared/character';
 import type { Location } from '@shared/location';
-
-type WorkspaceView = 'characters' | 'locations';
-
-type CharacterFormState = {
-  name: string;
-  summary: string;
-  locationId: number | null;
-};
-
-type LocationFormState = {
-  name: string;
-  summary: string;
-};
-
-const emptyCharacterForm = (): CharacterFormState => ({
-  name: '',
-  summary: '',
-  locationId: null,
-});
-
-const emptyLocationForm = (): LocationFormState => ({
-  name: '',
-  summary: '',
-});
-
-function getErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : 'Something went wrong.';
-}
-
-function toSelectValue(value: number | null): string {
-  return value === null ? '' : String(value);
-}
+import { AppShell } from '@renderer/components/AppShell';
+import { CharacterWorkspace } from '@renderer/features/characters/CharacterWorkspace';
+import { LocationWorkspace } from '@renderer/features/locations/LocationWorkspace';
+import {
+  emptyCharacterForm,
+  emptyLocationForm,
+  getErrorMessage,
+  type CharacterFormState,
+  type LocationFormState,
+  type WorkspaceView,
+} from '@renderer/lib/forms';
 
 export default function App() {
   const [activeView, setActiveView] = useState<WorkspaceView>('characters');
@@ -109,6 +89,34 @@ export default function App() {
           }
         : emptyLocationForm(),
     );
+  }
+
+  function updateCreateCharacterForm(changes: Partial<CharacterFormState>): void {
+    setCreateCharacterForm((current) => ({
+      ...current,
+      ...changes,
+    }));
+  }
+
+  function updateEditCharacterForm(changes: Partial<CharacterFormState>): void {
+    setEditCharacterForm((current) => ({
+      ...current,
+      ...changes,
+    }));
+  }
+
+  function updateCreateLocationForm(changes: Partial<LocationFormState>): void {
+    setCreateLocationForm((current) => ({
+      ...current,
+      ...changes,
+    }));
+  }
+
+  function updateEditLocationForm(changes: Partial<LocationFormState>): void {
+    setEditLocationForm((current) => ({
+      ...current,
+      ...changes,
+    }));
   }
 
   async function initializeData(): Promise<void> {
@@ -234,7 +242,7 @@ export default function App() {
     }
   }
 
-  async function handleCreateCharacter(event: React.FormEvent<HTMLFormElement>) {
+  async function handleCreateCharacter(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     setIsCreatingCharacter(true);
     setErrorMessage(null);
@@ -252,7 +260,7 @@ export default function App() {
     }
   }
 
-  async function handleUpdateCharacter(event: React.FormEvent<HTMLFormElement>) {
+  async function handleUpdateCharacter(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
 
     if (selectedCharacterId === null) {
@@ -300,7 +308,7 @@ export default function App() {
     }
   }
 
-  async function handleCreateLocation(event: React.FormEvent<HTMLFormElement>) {
+  async function handleCreateLocation(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     setIsCreatingLocation(true);
     setErrorMessage(null);
@@ -318,7 +326,7 @@ export default function App() {
     }
   }
 
-  async function handleUpdateLocation(event: React.FormEvent<HTMLFormElement>) {
+  async function handleUpdateLocation(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
 
     if (selectedLocationId === null) {
@@ -374,485 +382,58 @@ export default function App() {
     : 0;
 
   return (
-    <div className="app-shell">
-      <header className="app-header">
-        <div className="header-copy">
-          <div>
-            <p className="eyebrow">WorldForge</p>
-            <h1>World Workshop</h1>
-          </div>
-
-          <div className="entity-switcher" aria-label="Entity Workspace">
-            <button
-              className={
-                activeView === 'characters' ? 'workspace-button active' : 'workspace-button'
-              }
-              onClick={() => {
-                setActiveView('characters');
-              }}
-              type="button"
-            >
-              Characters
-            </button>
-            <button
-              className={
-                activeView === 'locations' ? 'workspace-button active' : 'workspace-button'
-              }
-              onClick={() => {
-                setActiveView('locations');
-              }}
-              type="button"
-            >
-              Locations
-            </button>
-          </div>
-        </div>
-
-        <button
-          className="secondary-button"
-          disabled={isRefreshingAll}
-          onClick={() => {
-            void handleRefreshAll();
-          }}
-          type="button"
-        >
-          {isRefreshingAll ? 'Refreshing...' : 'Refresh'}
-        </button>
-      </header>
-
-      {errorMessage ? <div className="status error">{errorMessage}</div> : null}
-
-      <main className="content-grid">
-        {activeView === 'characters' ? (
-          <>
-            <section className="panel">
-              <div className="panel-header">
-                <h2>Characters</h2>
-                <span className="pill">
-                  {filteredCharacters.length}/{characters.length}
-                </span>
-              </div>
-
-              <div className="list-controls">
-                <label>
-                  <span>Search</span>
-                  <input
-                    onChange={(event) => {
-                      setCharacterSearch(event.target.value);
-                    }}
-                    placeholder="Search name, summary, or location"
-                    value={characterSearch}
-                  />
-                </label>
-
-                <label>
-                  <span>Filter by location</span>
-                  <select
-                    onChange={(event) => {
-                      setCharacterLocationFilter(event.target.value);
-                    }}
-                    value={characterLocationFilter}
-                  >
-                    <option value="all">All characters</option>
-                    <option value="unassigned">Unassigned only</option>
-                    {locations.map((location) => (
-                      <option key={location.id} value={String(location.id)}>
-                        {location.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-
-              {isLoadingCharacters ? <p className="muted">Loading characters...</p> : null}
-
-              {!isLoadingCharacters && characters.length === 0 ? (
-                <p className="muted">No characters yet. Create the first one below.</p>
-              ) : null}
-
-              {!isLoadingCharacters &&
-              characters.length > 0 &&
-              filteredCharacters.length === 0 ? (
-                <p className="muted">No characters match the current search or filter.</p>
-              ) : null}
-
-              <ul className="entity-list">
-                {filteredCharacters.map((character) => (
-                  <li key={character.id}>
-                    <button
-                      className={
-                        character.id === selectedCharacterId
-                          ? 'entity-list-item active'
-                          : 'entity-list-item'
-                      }
-                      onClick={() => {
-                        setSelectedCharacterId(character.id);
-                      }}
-                      type="button"
-                    >
-                      <div className="entity-list-heading">
-                        <strong>{character.name}</strong>
-                        <span className={character.location ? 'pill small' : 'pill subtle'}>
-                          {character.location?.name ?? 'Unassigned'}
-                        </span>
-                      </div>
-                      <span>{character.summary || 'No summary yet.'}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </section>
-
-            <section className="panel details-panel">
-              <div className="panel-header">
-                <h2>Selected Character</h2>
-                {selectedCharacter ? <span className="pill">#{selectedCharacter.id}</span> : null}
-              </div>
-
-              {selectedCharacterId === null ? (
-                <p className="muted">Select a character to view and edit it.</p>
-              ) : null}
-
-              {selectedCharacterId !== null && isLoadingCharacterDetails ? (
-                <p className="muted">Loading character details...</p>
-              ) : null}
-
-              {selectedCharacter ? (
-                <>
-                  <dl className="detail-grid">
-                    <div>
-                      <dt>Created</dt>
-                      <dd>{new Date(selectedCharacter.createdAt).toLocaleString()}</dd>
-                    </div>
-                    <div>
-                      <dt>Updated</dt>
-                      <dd>{new Date(selectedCharacter.updatedAt).toLocaleString()}</dd>
-                    </div>
-                    <div>
-                      <dt>Linked Location</dt>
-                      <dd>{selectedCharacter.location?.name ?? 'Unassigned'}</dd>
-                    </div>
-                  </dl>
-
-                  <div className="linked-card">
-                    <p className="card-title">Location Link</p>
-                    <p className="muted helper-text">
-                      {selectedCharacter.location
-                        ? `${selectedCharacter.name} is currently linked to ${selectedCharacter.location.name}.`
-                        : 'This character is currently unassigned.'}
-                    </p>
-                  </div>
-
-                  <form className="form" onSubmit={handleUpdateCharacter}>
-                    <label>
-                      <span>Name</span>
-                      <input
-                        name="name"
-                        onChange={(event) =>
-                          setEditCharacterForm((current) => ({
-                            ...current,
-                            name: event.target.value,
-                          }))
-                        }
-                        required
-                        value={editCharacterForm.name}
-                      />
-                    </label>
-
-                    <label>
-                      <span>Summary</span>
-                      <textarea
-                        name="summary"
-                        onChange={(event) =>
-                          setEditCharacterForm((current) => ({
-                            ...current,
-                            summary: event.target.value,
-                          }))
-                        }
-                        rows={8}
-                        value={editCharacterForm.summary}
-                      />
-                    </label>
-
-                    <label>
-                      <span>Location</span>
-                      <select
-                        name="locationId"
-                        onChange={(event) =>
-                          setEditCharacterForm((current) => ({
-                            ...current,
-                            locationId: event.target.value
-                              ? Number(event.target.value)
-                              : null,
-                          }))
-                        }
-                        value={toSelectValue(editCharacterForm.locationId)}
-                      >
-                        <option value="">Unassigned</option>
-                        {locations.map((location) => (
-                          <option key={location.id} value={String(location.id)}>
-                            {location.name}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-
-                    {locations.length === 0 ? (
-                      <p className="muted helper-text">
-                        No saved locations yet. Switch to the Locations workspace to add one.
-                      </p>
-                    ) : null}
-
-                    <div className="button-row">
-                      <button disabled={isUpdatingCharacter} type="submit">
-                        {isUpdatingCharacter ? 'Saving...' : 'Save Changes'}
-                      </button>
-                      <button
-                        className="danger-button"
-                        disabled={isDeletingCharacter || isUpdatingCharacter}
-                        onClick={() => {
-                          void handleDeleteCharacter();
-                        }}
-                        type="button"
-                      >
-                        {isDeletingCharacter ? 'Deleting...' : 'Delete Character'}
-                      </button>
-                    </div>
-                  </form>
-                </>
-              ) : null}
-            </section>
-
-            <section className="panel">
-              <div className="panel-header">
-                <h2>Create Character</h2>
-              </div>
-
-              <form className="form" onSubmit={handleCreateCharacter}>
-                <label>
-                  <span>Name</span>
-                  <input
-                    name="name"
-                    onChange={(event) =>
-                      setCreateCharacterForm((current) => ({
-                        ...current,
-                        name: event.target.value,
-                      }))
-                    }
-                    placeholder="Aeris Vale"
-                    required
-                    value={createCharacterForm.name}
-                  />
-                </label>
-
-                <label>
-                  <span>Summary</span>
-                  <textarea
-                    name="summary"
-                    onChange={(event) =>
-                      setCreateCharacterForm((current) => ({
-                        ...current,
-                        summary: event.target.value,
-                      }))
-                    }
-                    placeholder="A short note about the character."
-                    rows={6}
-                    value={createCharacterForm.summary}
-                  />
-                </label>
-
-                <label>
-                  <span>Location</span>
-                  <select
-                    name="locationId"
-                    onChange={(event) =>
-                      setCreateCharacterForm((current) => ({
-                        ...current,
-                        locationId: event.target.value
-                          ? Number(event.target.value)
-                          : null,
-                      }))
-                    }
-                    value={toSelectValue(createCharacterForm.locationId)}
-                  >
-                    <option value="">Unassigned</option>
-                    {locations.map((location) => (
-                      <option key={location.id} value={String(location.id)}>
-                        {location.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <button disabled={isCreatingCharacter} type="submit">
-                  {isCreatingCharacter ? 'Creating...' : 'Create Character'}
-                </button>
-              </form>
-            </section>
-          </>
-        ) : (
-          <>
-            <section className="panel">
-              <div className="panel-header">
-                <h2>Locations</h2>
-                <span className="pill">{locations.length}</span>
-              </div>
-
-              {isLoadingLocations ? <p className="muted">Loading locations...</p> : null}
-
-              {!isLoadingLocations && locations.length === 0 ? (
-                <p className="muted">No locations yet. Create the first one below.</p>
-              ) : null}
-
-              <ul className="entity-list">
-                {locations.map((location) => {
-                  const linkedCount = characters.filter(
-                    (character) => character.locationId === location.id,
-                  ).length;
-
-                  return (
-                    <li key={location.id}>
-                      <button
-                        className={
-                          location.id === selectedLocationId
-                            ? 'entity-list-item active'
-                            : 'entity-list-item'
-                        }
-                        onClick={() => {
-                          setSelectedLocationId(location.id);
-                        }}
-                        type="button"
-                      >
-                        <div className="entity-list-heading">
-                          <strong>{location.name}</strong>
-                          <span className="pill small">
-                            {linkedCount} linked
-                          </span>
-                        </div>
-                        <span>{location.summary || 'No summary yet.'}</span>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </section>
-
-            <section className="panel details-panel">
-              <div className="panel-header">
-                <h2>Selected Location</h2>
-                {selectedLocation ? <span className="pill">#{selectedLocation.id}</span> : null}
-              </div>
-
-              {selectedLocationId === null ? (
-                <p className="muted">Select a location to view and edit it.</p>
-              ) : null}
-
-              {selectedLocationId !== null && isLoadingLocationDetails ? (
-                <p className="muted">Loading location details...</p>
-              ) : null}
-
-              {selectedLocation ? (
-                <>
-                  <dl className="detail-grid">
-                    <div>
-                      <dt>Created</dt>
-                      <dd>{new Date(selectedLocation.createdAt).toLocaleString()}</dd>
-                    </div>
-                    <div>
-                      <dt>Updated</dt>
-                      <dd>{new Date(selectedLocation.updatedAt).toLocaleString()}</dd>
-                    </div>
-                    <div>
-                      <dt>Linked Characters</dt>
-                      <dd>{selectedLocationCharacterCount}</dd>
-                    </div>
-                  </dl>
-
-                  <form className="form" onSubmit={handleUpdateLocation}>
-                    <label>
-                      <span>Name</span>
-                      <input
-                        name="name"
-                        onChange={(event) =>
-                          setEditLocationForm((current) => ({
-                            ...current,
-                            name: event.target.value,
-                          }))
-                        }
-                        required
-                        value={editLocationForm.name}
-                      />
-                    </label>
-
-                    <label>
-                      <span>Summary</span>
-                      <textarea
-                        name="summary"
-                        onChange={(event) =>
-                          setEditLocationForm((current) => ({
-                            ...current,
-                            summary: event.target.value,
-                          }))
-                        }
-                        rows={8}
-                        value={editLocationForm.summary}
-                      />
-                    </label>
-
-                    <button disabled={isUpdatingLocation} type="submit">
-                      {isUpdatingLocation ? 'Saving...' : 'Save Changes'}
-                    </button>
-                  </form>
-                </>
-              ) : null}
-            </section>
-
-            <section className="panel">
-              <div className="panel-header">
-                <h2>Create Location</h2>
-              </div>
-
-              <form className="form" onSubmit={handleCreateLocation}>
-                <label>
-                  <span>Name</span>
-                  <input
-                    name="name"
-                    onChange={(event) =>
-                      setCreateLocationForm((current) => ({
-                        ...current,
-                        name: event.target.value,
-                      }))
-                    }
-                    placeholder="The Glass Coast"
-                    required
-                    value={createLocationForm.name}
-                  />
-                </label>
-
-                <label>
-                  <span>Summary</span>
-                  <textarea
-                    name="summary"
-                    onChange={(event) =>
-                      setCreateLocationForm((current) => ({
-                        ...current,
-                        summary: event.target.value,
-                      }))
-                    }
-                    placeholder="A short note about the location."
-                    rows={6}
-                    value={createLocationForm.summary}
-                  />
-                </label>
-
-                <button disabled={isCreatingLocation} type="submit">
-                  {isCreatingLocation ? 'Creating...' : 'Create Location'}
-                </button>
-              </form>
-            </section>
-          </>
-        )}
-      </main>
-    </div>
+    <AppShell
+      activeView={activeView}
+      errorMessage={errorMessage}
+      isRefreshing={isRefreshingAll}
+      onRefresh={handleRefreshAll}
+      onViewChange={setActiveView}
+    >
+      {activeView === 'characters' ? (
+        <CharacterWorkspace
+          characterLocationFilter={characterLocationFilter}
+          characterSearch={characterSearch}
+          characters={characters}
+          createCharacterForm={createCharacterForm}
+          editCharacterForm={editCharacterForm}
+          filteredCharacters={filteredCharacters}
+          isCreatingCharacter={isCreatingCharacter}
+          isDeletingCharacter={isDeletingCharacter}
+          isLoadingCharacterDetails={isLoadingCharacterDetails}
+          isLoadingCharacters={isLoadingCharacters}
+          isUpdatingCharacter={isUpdatingCharacter}
+          locations={locations}
+          onCharacterLocationFilterChange={setCharacterLocationFilter}
+          onCharacterSearchChange={setCharacterSearch}
+          onCreateCharacter={handleCreateCharacter}
+          onCreateCharacterFormChange={updateCreateCharacterForm}
+          onDeleteCharacter={handleDeleteCharacter}
+          onEditCharacterFormChange={updateEditCharacterForm}
+          onSelectCharacter={setSelectedCharacterId}
+          onUpdateCharacter={handleUpdateCharacter}
+          selectedCharacter={selectedCharacter}
+          selectedCharacterId={selectedCharacterId}
+        />
+      ) : (
+        <LocationWorkspace
+          characters={characters}
+          createLocationForm={createLocationForm}
+          editLocationForm={editLocationForm}
+          isCreatingLocation={isCreatingLocation}
+          isLoadingLocationDetails={isLoadingLocationDetails}
+          isLoadingLocations={isLoadingLocations}
+          isUpdatingLocation={isUpdatingLocation}
+          locations={locations}
+          onCreateLocation={handleCreateLocation}
+          onCreateLocationFormChange={updateCreateLocationForm}
+          onEditLocationFormChange={updateEditLocationForm}
+          onSelectLocation={setSelectedLocationId}
+          onUpdateLocation={handleUpdateLocation}
+          selectedLocation={selectedLocation}
+          selectedLocationCharacterCount={selectedLocationCharacterCount}
+          selectedLocationId={selectedLocationId}
+        />
+      )}
+    </AppShell>
   );
 }
