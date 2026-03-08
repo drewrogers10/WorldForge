@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron';
 import type { CharacterService } from '@backend/services/character-service';
+import type { LocationService } from '@backend/services/location-service';
 import {
   ipcContracts,
   type IpcContractKey,
@@ -21,14 +22,32 @@ function registerHandler<K extends IpcContractKey>(
 }
 
 export function registerIpcHandlers(
-  characterService: CharacterService,
+  services: {
+    characterService: CharacterService;
+    locationService: LocationService;
+  },
 ): void {
-  registerHandler('listCharacters', () => characterService.listCharacters());
-  registerHandler('getCharacter', (input) => characterService.getCharacter(input));
+  registerHandler('listCharacters', () => services.characterService.listCharacters());
+  registerHandler('getCharacter', (input) =>
+    services.characterService.getCharacter(input),
+  );
   registerHandler('createCharacter', (input) =>
-    characterService.createCharacter(input),
+    services.characterService.createCharacter(input),
   );
   registerHandler('updateCharacter', (input) =>
-    characterService.updateCharacter(input),
+    services.characterService.updateCharacter(input),
+  );
+  registerHandler('deleteCharacter', (input) =>
+    services.characterService.deleteCharacter(input),
+  );
+  registerHandler('listLocations', () => services.locationService.listLocations());
+  registerHandler('getLocation', (input) =>
+    services.locationService.getLocation(input),
+  );
+  registerHandler('createLocation', (input) =>
+    services.locationService.createLocation(input),
+  );
+  registerHandler('updateLocation', (input) =>
+    services.locationService.updateLocation(input),
   );
 }

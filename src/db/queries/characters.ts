@@ -1,10 +1,31 @@
 import { desc, eq } from 'drizzle-orm';
 import type { AppDatabase } from '../client';
-import { characters, type CharacterRow } from '../schema';
+import { characters, locations } from '../schema';
+
+const characterSelection = {
+  id: characters.id,
+  name: characters.name,
+  summary: characters.summary,
+  locationId: characters.locationId,
+  locationName: locations.name,
+  createdAt: characters.createdAt,
+  updatedAt: characters.updatedAt,
+};
+
+export type CharacterRecord = {
+  id: number;
+  name: string;
+  summary: string;
+  locationId: number | null;
+  locationName: string | null;
+  createdAt: number;
+  updatedAt: number;
+};
 
 type CreateCharacterRowInput = {
   name: string;
   summary: string;
+  locationId: number | null;
   createdAt: number;
   updatedAt: number;
 };
@@ -12,13 +33,19 @@ type CreateCharacterRowInput = {
 type UpdateCharacterRowInput = {
   name: string;
   summary: string;
+  locationId: number | null;
   updatedAt: number;
 };
 
-export function listCharacterRows(db: AppDatabase): CharacterRow[] {
+function createCharacterQuery(db: AppDatabase) {
   return db
-    .select()
+    .select(characterSelection)
     .from(characters)
+    .leftJoin(locations, eq(characters.locationId, locations.id));
+}
+
+export function listCharacterRows(db: AppDatabase): CharacterRecord[] {
+  return createCharacterQuery(db)
     .orderBy(desc(characters.updatedAt), desc(characters.id))
     .all();
 }
@@ -26,14 +53,14 @@ export function listCharacterRows(db: AppDatabase): CharacterRow[] {
 export function getCharacterRow(
   db: AppDatabase,
   id: number,
-): CharacterRow | undefined {
-  return db.select().from(characters).where(eq(characters.id, id)).get();
+): CharacterRecord | undefined {
+  return createCharacterQuery(db).where(eq(characters.id, id)).get();
 }
 
 export function createCharacterRow(
   db: AppDatabase,
   input: CreateCharacterRowInput,
-): CharacterRow {
+): CharacterRecord {
   const result = db.insert(characters).values(input).run();
   const created = getCharacterRow(db, Number(result.lastInsertRowid));
 
@@ -48,7 +75,7 @@ export function updateCharacterRow(
   db: AppDatabase,
   id: number,
   input: UpdateCharacterRowInput,
-): CharacterRow {
+): CharacterRecord {
   db.update(characters).set(input).where(eq(characters.id, id)).run();
 
   const updated = getCharacterRow(db, id);
@@ -58,4 +85,12 @@ export function updateCharacterRow(
   }
 
   return updated;
+}
+
+export function deleteCharacterRow(db: AppDatabase, id: number): void {
+  const result = db.delete(characters).where(eq(characters.id, id)).run();
+
+  if (result.changes === 0) {
+    throw new Error(`Character ${id} does not exist.`);
+  }
 }

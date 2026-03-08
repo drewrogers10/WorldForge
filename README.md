@@ -22,13 +22,19 @@ Minimal desktop app foundation for WorldForge using Electron, Vite, React, TypeS
    npm run typecheck
    ```
 
-4. Build the renderer and Electron bundles:
+4. Run the focused test suite:
+
+   ```bash
+   npm test
+   ```
+
+5. Build the renderer and Electron bundles:
 
    ```bash
    npm run build
    ```
 
-5. Generate a new migration after schema changes:
+6. Generate a new migration after schema changes:
 
    ```bash
    npm run db:generate -- --name=add-whatever-you-changed
@@ -72,11 +78,20 @@ That keeps the renderer isolated from both Node and SQLite while still giving yo
 
 `better-sqlite3` is a native module, so the project rebuilds it for Electron automatically during `npm install` via `@electron/rebuild`. That keeps development startup reliable after fresh installs and Electron version changes.
 
-## Current Sample Feature
+The test suite runs under plain Node, not Electron. `npm test` therefore rebuilds `better-sqlite3` for Node before running Vitest, then restores the Electron build afterward so app development still works immediately after the test run.
 
-The starter app proves the architecture with one end-to-end entity:
+## Current Model
+
+The app now proves the architecture across two entities and one simple relationship:
 
 - `Character`
+  - `id`
+  - `name`
+  - `summary`
+  - `locationId` nullable foreign key to `Location`
+  - `createdAt`
+  - `updatedAt`
+- `Location`
   - `id`
   - `name`
   - `summary`
@@ -89,13 +104,26 @@ Implemented operations:
 - `getCharacter`
 - `createCharacter`
 - `updateCharacter`
+- `deleteCharacter`
+- `listLocations`
+- `getLocation`
+- `createLocation`
+- `updateLocation`
 
 The UI lets you:
 
 - list characters
+- search characters by name, summary, or linked location
+- filter characters by assigned location or unassigned state
 - select a character
 - create a character
 - edit a character
+- delete a character
+- assign or clear a character's linked location
+- list locations
+- create locations
+- edit locations
+- view the selected character's linked location cleanly in the detail panel
 
 ## Where Future Features Should Go
 
@@ -117,3 +145,13 @@ Keep new capabilities following the same direction of dependency:
 `renderer -> preload -> main -> services -> db`
 
 Avoid importing Electron, Node APIs, or database code into the renderer.
+
+For each new entity, follow the same boring pattern:
+
+1. Add the Drizzle table and migration in `src/db` and `drizzle/`.
+2. Add shared Zod contracts in `src/shared`.
+3. Add focused query helpers in `src/db/queries`.
+4. Add one service in `src/backend/services`.
+5. Expose only the required IPC handlers in `src/main/ipc.ts`.
+6. Add only the minimum preload methods needed by the renderer.
+7. Add a small set of service/contract tests before growing the UI further.

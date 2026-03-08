@@ -9,8 +9,12 @@
     "dev": "vite",
     "build": "npm run typecheck && vite build",
     "typecheck": "tsc -b",
+    "pretest": "npm run rebuild:native:node",
+    "test": "vitest run",
     "db:generate": "drizzle-kit generate",
+    "rebuild:native:node": "npm rebuild better-sqlite3",
     "rebuild:native": "electron-rebuild -f -w better-sqlite3",
+    "posttest": "npm run rebuild:native",
     "postinstall": "npm run rebuild:native"
   },
   "dependencies": {
@@ -21,16 +25,17 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@electron/rebuild": "^4.0.3",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.1",
-    "@electron/rebuild": "^4.0.3",
     "drizzle-kit": "^0.31.9",
     "electron": "^40.8.0",
     "typescript": "~5.9.3",
     "vite": "^7.3.1",
-    "vite-plugin-electron": "^0.29.0"
+    "vite-plugin-electron": "^0.29.0",
+    "vitest": "^4.0.18"
   }
 }

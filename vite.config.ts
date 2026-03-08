@@ -1,6 +1,6 @@
 import path from 'node:path';
-import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vitest/config';
 import electron from 'vite-plugin-electron/simple';
 
 const aliases = {
@@ -48,5 +48,10 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
+  },
+  test: {
+    environment: 'node',
+    fileParallelism: false,
+    include: ['src/**/*.test.ts'],
   },
 });
