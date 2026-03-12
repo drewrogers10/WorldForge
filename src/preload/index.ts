@@ -27,6 +27,7 @@ const api: WorldForgeApi = {
   getLocation: (input) => invoke('getLocation', input),
   createLocation: (input) => invoke('createLocation', input),
   updateLocation: (input) => invoke('updateLocation', input),
+  deleteLocation: (input) => invoke('deleteLocation', input),
   listItems: () => invoke('listItems', undefined),
   getItem: (input) => invoke('getItem', input),
   createItem: (input) => invoke('createItem', input),

@@ -22,7 +22,9 @@ function toItem(record: {
   summary: string;
   quantity: number;
   ownerCharacterId: number | null;
+  ownerCharacterName: string | null;
   locationId: number | null;
+  locationName: string | null;
   createdAt: number;
   updatedAt: number;
 }): Item {
@@ -32,7 +34,21 @@ function toItem(record: {
     summary: record.summary,
     quantity: record.quantity,
     ownerCharacterId: record.ownerCharacterId,
+    ownerCharacter:
+      record.ownerCharacterId !== null && record.ownerCharacterName
+        ? {
+            id: record.ownerCharacterId,
+            name: record.ownerCharacterName,
+          }
+        : null,
     locationId: record.locationId,
+    location:
+      record.locationId !== null && record.locationName
+        ? {
+            id: record.locationId,
+            name: record.locationName,
+          }
+        : null,
     createdAt: new Date(record.createdAt).toISOString(),
     updatedAt: new Date(record.updatedAt).toISOString(),
   };

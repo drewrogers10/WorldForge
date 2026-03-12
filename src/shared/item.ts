@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { characterReferenceSchema } from './character';
+import { locationReferenceSchema } from './location';
 
 const itemIdSchema = z.number().int().positive();
 const itemNameSchema = z.string().trim().min(1).max(120);
@@ -27,7 +29,9 @@ export const itemSchema = z
     summary: itemSummarySchema,
     quantity: itemQuantitySchema,
     ownerCharacterId: nullableOwnerCharacterIdSchema,
+    ownerCharacter: characterReferenceSchema.nullable(),
     locationId: nullableLocationIdSchema,
+    location: locationReferenceSchema.nullable(),
     createdAt: z.string().min(1),
     updatedAt: z.string().min(1),
   })

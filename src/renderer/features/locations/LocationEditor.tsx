@@ -5,11 +5,14 @@ import type { LocationFormState } from '@renderer/lib/forms';
 
 type LocationEditorProps = {
   form: LocationFormState;
+  isDeleting?: boolean;
   isLoading?: boolean;
   isSubmitting: boolean;
   linkedCharacterCount: number;
+  linkedItemCount: number;
   location: Location | null;
   mode: 'create' | 'edit';
+  onDelete?: () => void | Promise<void>;
   onFormChange: (changes: Partial<LocationFormState>) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   selectedLocationId: number | null;
@@ -17,11 +20,14 @@ type LocationEditorProps = {
 
 export function LocationEditor({
   form,
+  isDeleting = false,
   isLoading = false,
   isSubmitting,
   linkedCharacterCount,
+  linkedItemCount,
   location,
   mode,
+  onDelete,
   onFormChange,
   onSubmit,
   selectedLocationId,
@@ -93,6 +99,10 @@ export function LocationEditor({
               <dt>Linked People</dt>
               <dd>{linkedCharacterCount}</dd>
             </div>
+            <div>
+              <dt>Linked Items</dt>
+              <dd>{linkedItemCount}</dd>
+            </div>
           </dl>
 
           <form className="form" onSubmit={onSubmit}>
@@ -120,9 +130,21 @@ export function LocationEditor({
               />
             </label>
 
-            <button disabled={isSubmitting} type="submit">
-              {isSubmitting ? 'Saving...' : 'Save Changes'}
-            </button>
+            <div className="button-row">
+              <button disabled={isSubmitting} type="submit">
+                {isSubmitting ? 'Saving...' : 'Save Changes'}
+              </button>
+              <button
+                className="danger-button"
+                disabled={isDeleting || isSubmitting}
+                onClick={() => {
+                  void onDelete?.();
+                }}
+                type="button"
+              >
+                {isDeleting ? 'Deleting...' : 'Delete Place'}
+              </button>
+            </div>
           </form>
         </>
       ) : null}

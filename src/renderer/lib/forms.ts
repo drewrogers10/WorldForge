@@ -1,4 +1,5 @@
 import type { CreateCharacterInput } from '@shared/character';
+import type { CreateItemInput } from '@shared/item';
 import type { CreateLocationInput } from '@shared/location';
 
 export type WorkspaceView =
@@ -9,6 +10,7 @@ export type WorkspaceView =
   | 'items'
   | 'organizations';
 export type CharacterFormState = CreateCharacterInput;
+export type ItemFormState = CreateItemInput;
 export type LocationFormState = CreateLocationInput;
 
 export const workspaceOptions: Array<{ id: WorkspaceView; label: string }> = [
@@ -29,6 +31,14 @@ export const emptyCharacterForm = (): CharacterFormState => ({
 export const emptyLocationForm = (): LocationFormState => ({
   name: '',
   summary: '',
+});
+
+export const emptyItemForm = (): ItemFormState => ({
+  name: '',
+  summary: '',
+  quantity: 1,
+  ownerCharacterId: null,
+  locationId: null,
 });
 
 export function getErrorMessage(error: unknown): string {

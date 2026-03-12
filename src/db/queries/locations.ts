@@ -59,3 +59,11 @@ export function updateLocationRow(
 
   return updated;
 }
+
+export function deleteLocationRow(db: AppDatabase, id: number): void {
+  const result = db.delete(locations).where(eq(locations.id, id)).run();
+
+  if (result.changes === 0) {
+    throw new Error(`Location ${id} does not exist.`);
+  }
+}

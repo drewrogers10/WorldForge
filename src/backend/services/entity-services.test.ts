@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createTestDatabaseContext } from '@db/test-utils';
 import { createCharacterService } from './character-service';
+import { createItemService } from './item-service';
 import { createLocationService } from './location-service';
 
 type TestDatabaseContext = ReturnType<typeof createTestDatabaseContext>;
@@ -80,9 +81,12 @@ describe('entity services', () => {
     });
 
     characterService.deleteCharacter({ id: createdCharacter.id });
+    locationService.deleteLocation({ id: coast.id });
+    locationService.deleteLocation({ id: bastion.id });
 
     expect(characterService.listCharacters()).toEqual([]);
     expect(characterService.getCharacter({ id: createdCharacter.id })).toBeNull();
+    expect(locationService.listLocations()).toEqual([]);
   });
 
   it('rejects characters linked to missing locations and updates locations', () => {
@@ -125,5 +129,39 @@ describe('entity services', () => {
 
     expect(updatedLocation.summary).toContain('rebuilt harbors');
     expect(locationService.listLocations()[0]?.summary).toContain('rebuilt harbors');
+  });
+
+  it('clears character and item location links when deleting a place', () => {
+    const locationService = createLocationService(context!.db);
+    const characterService = createCharacterService(context!.db);
+    const itemService = createItemService(context!.db);
+
+    const harbor = locationService.createLocation({
+      name: 'Harbor Reach',
+      summary: 'A busy port district.',
+    });
+    const scribe = characterService.createCharacter({
+      name: 'Caro Fen',
+      summary: 'Port registrar.',
+      locationId: harbor.id,
+    });
+    const ledger = itemService.createItem({
+      name: 'Harbor Ledger',
+      summary: 'Notes on incoming trade.',
+      quantity: 1,
+      ownerCharacterId: null,
+      locationId: harbor.id,
+    });
+
+    locationService.deleteLocation({ id: harbor.id });
+
+    expect(characterService.getCharacter({ id: scribe.id })).toMatchObject({
+      locationId: null,
+      location: null,
+    });
+    expect(itemService.getItem({ id: ledger.id })).toMatchObject({
+      locationId: null,
+      location: null,
+    });
   });
 });

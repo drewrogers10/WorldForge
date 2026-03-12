@@ -14,6 +14,7 @@ import type {
 } from './item';
 import type {
   CreateLocationInput,
+  DeleteLocationInput,
   GetLocationInput,
   Location,
   UpdateLocationInput,
@@ -29,6 +30,7 @@ export interface WorldForgeApi {
   getLocation: (input: GetLocationInput) => Promise<Location | null>;
   createLocation: (input: CreateLocationInput) => Promise<Location>;
   updateLocation: (input: UpdateLocationInput) => Promise<Location>;
+  deleteLocation: (input: DeleteLocationInput) => Promise<void>;
   listItems: () => Promise<Item[]>;
   getItem: (input: GetItemInput) => Promise<Item | null>;
   createItem: (input: CreateItemInput) => Promise<Item>;

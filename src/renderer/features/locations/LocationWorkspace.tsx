@@ -10,12 +10,15 @@ type LocationWorkspaceProps = {
   createLocationForm: LocationFormState;
   editLocationForm: LocationFormState;
   isCreatingLocation: boolean;
+  isDeletingLocation: boolean;
   isLoadingLocationDetails: boolean;
   isLoadingLocations: boolean;
   isUpdatingLocation: boolean;
+  linkedItemCount: number;
   locations: Location[];
   onCreateLocation: (event: FormEvent<HTMLFormElement>) => void | Promise<void>;
   onCreateLocationFormChange: (changes: Partial<LocationFormState>) => void;
+  onDeleteLocation: () => void | Promise<void>;
   onEditLocationFormChange: (changes: Partial<LocationFormState>) => void;
   onSelectLocation: (id: number) => void;
   onUpdateLocation: (event: FormEvent<HTMLFormElement>) => void | Promise<void>;
@@ -29,12 +32,15 @@ export function LocationWorkspace({
   createLocationForm,
   editLocationForm,
   isCreatingLocation,
+  isDeletingLocation,
   isLoadingLocationDetails,
   isLoadingLocations,
   isUpdatingLocation,
+  linkedItemCount,
   locations,
   onCreateLocation,
   onCreateLocationFormChange,
+  onDeleteLocation,
   onEditLocationFormChange,
   onSelectLocation,
   onUpdateLocation,
@@ -54,11 +60,14 @@ export function LocationWorkspace({
 
       <LocationEditor
         form={editLocationForm}
+        isDeleting={isDeletingLocation}
         isLoading={isLoadingLocationDetails}
         isSubmitting={isUpdatingLocation}
         linkedCharacterCount={selectedLocationCharacterCount}
+        linkedItemCount={linkedItemCount}
         location={selectedLocation}
         mode="edit"
+        onDelete={onDeleteLocation}
         onFormChange={onEditLocationFormChange}
         onSubmit={onUpdateLocation}
         selectedLocationId={selectedLocationId}
@@ -68,6 +77,7 @@ export function LocationWorkspace({
         form={createLocationForm}
         isSubmitting={isCreatingLocation}
         linkedCharacterCount={0}
+        linkedItemCount={0}
         location={null}
         mode="create"
         onFormChange={onCreateLocationFormChange}

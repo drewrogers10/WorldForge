@@ -61,7 +61,7 @@ The app is intentionally split into narrow layers:
 - `src/renderer/components`
   Reusable shell and panel primitives for the renderer.
 - `src/renderer/features`
-  Entity-specific workspaces and editors. People and places have active UI flows on top of the current character/location model; the other core world areas currently expose guided placeholder workspaces.
+  Entity-specific workspaces and editors. People, places, and items have active UI flows on top of the current entity model; the other core world areas currently expose guided placeholder workspaces.
 - `src/renderer/lib`
   Small renderer-only helpers such as form state utilities.
 - `src/preload`
@@ -144,7 +144,7 @@ The app currently proves the architecture across three entities:
   - `createdAt`
   - `updatedAt`
 
-`Character` currently powers the `People` workspace, `Location` powers the `Places` workspace, and `Item` is backend/API-only in the current merge with a guided placeholder workspace in the renderer.
+`Character` currently powers the `People` workspace, `Location` powers the `Places` workspace, and `Item` powers the `Items` workspace.
 
 Implemented operations:
 
@@ -157,6 +157,7 @@ Implemented operations:
 - `getLocation`
 - `createLocation`
 - `updateLocation`
+- `deleteLocation`
 - `listItems`
 - `getItem`
 - `createItem`
@@ -177,9 +178,15 @@ The UI lets you:
 - list places
 - create places
 - edit places
+- delete places
 - view the selected person's linked place cleanly in the detail panel
-- review the intended scope of powers, events, items, and organizations directly in the app shell
-- see that Item support is merged while renderer CRUD remains intentionally deferred
+- list items
+- search and filter items by assignment state
+- create items
+- edit items
+- delete items
+- assign items to a person, a place, or an unassigned state
+- review the intended scope of powers, events, and organizations directly in the app shell
 
 ## Temporal RFC
 

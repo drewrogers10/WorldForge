@@ -52,6 +52,9 @@ export function registerIpcHandlers(
   registerHandler('updateLocation', (input) =>
     services.locationService.updateLocation(input),
   );
+  registerHandler('deleteLocation', (input) =>
+    services.locationService.deleteLocation(input),
+  );
   registerHandler('listItems', () => services.itemService.listItems());
   registerHandler('getItem', (input) => services.itemService.getItem(input));
   registerHandler('createItem', (input) => services.itemService.createItem(input));

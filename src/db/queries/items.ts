@@ -1,6 +1,32 @@
 import { desc, eq } from 'drizzle-orm';
 import type { AppDatabase } from '../client';
-import { items, type ItemRow } from '../schema';
+import { characters, items, locations } from '../schema';
+
+const itemSelection = {
+  id: items.id,
+  name: items.name,
+  summary: items.summary,
+  quantity: items.quantity,
+  ownerCharacterId: items.ownerCharacterId,
+  ownerCharacterName: characters.name,
+  locationId: items.locationId,
+  locationName: locations.name,
+  createdAt: items.createdAt,
+  updatedAt: items.updatedAt,
+};
+
+export type ItemRecord = {
+  id: number;
+  name: string;
+  summary: string;
+  quantity: number;
+  ownerCharacterId: number | null;
+  ownerCharacterName: string | null;
+  locationId: number | null;
+  locationName: string | null;
+  createdAt: number;
+  updatedAt: number;
+};
 
 type CreateItemRowInput = {
   name: string;
@@ -21,19 +47,23 @@ type UpdateItemRowInput = {
   updatedAt: number;
 };
 
-export function listItemRows(db: AppDatabase): ItemRow[] {
+function createItemQuery(db: AppDatabase) {
   return db
-    .select()
+    .select(itemSelection)
     .from(items)
-    .orderBy(desc(items.updatedAt), desc(items.id))
-    .all();
+    .leftJoin(characters, eq(items.ownerCharacterId, characters.id))
+    .leftJoin(locations, eq(items.locationId, locations.id));
 }
 
-export function getItemRow(db: AppDatabase, id: number): ItemRow | undefined {
-  return db.select().from(items).where(eq(items.id, id)).get();
+export function listItemRows(db: AppDatabase): ItemRecord[] {
+  return createItemQuery(db).orderBy(desc(items.updatedAt), desc(items.id)).all();
 }
 
-export function createItemRow(db: AppDatabase, input: CreateItemRowInput): ItemRow {
+export function getItemRow(db: AppDatabase, id: number): ItemRecord | undefined {
+  return createItemQuery(db).where(eq(items.id, id)).get();
+}
+
+export function createItemRow(db: AppDatabase, input: CreateItemRowInput): ItemRecord {
   const result = db.insert(items).values(input).run();
   const created = getItemRow(db, Number(result.lastInsertRowid));
 
@@ -48,7 +78,7 @@ export function updateItemRow(
   db: AppDatabase,
   id: number,
   input: UpdateItemRowInput,
-): ItemRow {
+): ItemRecord {
   db.update(items).set(input).where(eq(items.id, id)).run();
 
   const updated = getItemRow(db, id);

@@ -57,12 +57,21 @@ describe('item service', () => {
     });
     expect(ownedItem).toMatchObject({
       ownerCharacterId: aeris.id,
+      ownerCharacter: {
+        id: aeris.id,
+        name: 'Aeris Vale',
+      },
       locationId: null,
+      location: null,
     });
     expect(itemService.listItems()).toHaveLength(2);
     expect(itemService.getItem({ id: ownedItem.id })).toMatchObject({
       id: ownedItem.id,
       ownerCharacterId: aeris.id,
+      ownerCharacter: {
+        id: aeris.id,
+        name: 'Aeris Vale',
+      },
     });
 
     const movedItem = itemService.updateItem({
@@ -78,7 +87,12 @@ describe('item service', () => {
       summary: 'Stored with coastal charts.',
       quantity: 2,
       ownerCharacterId: null,
+      ownerCharacter: null,
       locationId: coast.id,
+      location: {
+        id: coast.id,
+        name: 'Glass Coast',
+      },
     });
 
     itemService.deleteItem({ id: unassignedItem.id });
@@ -174,7 +188,9 @@ describe('item service', () => {
 
     expect(itemService.getItem({ id: ownedItem.id })).toMatchObject({
       ownerCharacterId: null,
+      ownerCharacter: null,
       locationId: null,
+      location: null,
     });
 
     const refreshedStoredItem = itemService.getItem({ id: storedItem.id });
@@ -185,7 +201,9 @@ describe('item service', () => {
 
     expect(itemService.getItem({ id: storedItem.id })).toMatchObject({
       ownerCharacterId: null,
+      ownerCharacter: null,
       locationId: null,
+      location: null,
     });
   });
 });

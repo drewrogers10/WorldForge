@@ -1,12 +1,14 @@
 import type { AppDatabase } from '@db/client';
 import {
   createLocationRow,
+  deleteLocationRow,
   getLocationRow,
   listLocationRows,
   updateLocationRow,
 } from '@db/queries/locations';
 import type {
   CreateLocationInput,
+  DeleteLocationInput,
   GetLocationInput,
   Location,
   UpdateLocationInput,
@@ -72,6 +74,15 @@ export function createLocationService(db: AppDatabase) {
       });
 
       return toLocation(record);
+    },
+    deleteLocation(input: DeleteLocationInput): void {
+      const existing = getLocationRow(db, input.id);
+
+      if (!existing) {
+        throw new Error(`Location ${input.id} does not exist.`);
+      }
+
+      deleteLocationRow(db, input.id);
     },
   };
 }

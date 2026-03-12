@@ -70,6 +70,8 @@ describe('ipc contracts', () => {
         summary: '',
       }),
     ).toThrow();
+    expect(() => ipcContracts.deleteLocation.input.parse({ id: 0 })).toThrow();
+    expect(ipcContracts.deleteLocation.output.parse(undefined)).toBeUndefined();
   });
 
   it('validates item payloads and assignment rules', () => {
@@ -96,7 +98,12 @@ describe('ipc contracts', () => {
         summary: 'A polished navigators lens.',
         quantity: 2,
         ownerCharacterId: 4,
+        ownerCharacter: {
+          id: 4,
+          name: 'Aeris Vale',
+        },
         locationId: null,
+        location: null,
         createdAt: '2026-03-07T10:00:00.000Z',
         updatedAt: '2026-03-07T12:00:00.000Z',
       }),
@@ -104,6 +111,10 @@ describe('ipc contracts', () => {
       id: 7,
       quantity: 2,
       ownerCharacterId: 4,
+      ownerCharacter: {
+        id: 4,
+        name: 'Aeris Vale',
+      },
     });
 
     expect(() =>

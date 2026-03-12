@@ -8,6 +8,7 @@ import {
 } from './character';
 import {
   createLocationInputSchema,
+  deleteLocationInputSchema,
   getLocationInputSchema,
   locationSchema,
   updateLocationInputSchema,
@@ -79,6 +80,11 @@ export const ipcContracts = {
     'locations:update',
     updateLocationInputSchema,
     locationSchema,
+  ),
+  deleteLocation: createContract(
+    'locations:delete',
+    deleteLocationInputSchema,
+    z.void(),
   ),
   listItems: createContract('items:list', z.void(), z.array(itemSchema)),
   getItem: createContract('items:get', getItemInputSchema, itemSchema.nullable()),

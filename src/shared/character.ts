@@ -6,6 +6,11 @@ const characterNameSchema = z.string().trim().min(1).max(120);
 const characterSummarySchema = z.string().trim().max(4000);
 const nullableLocationIdSchema = characterIdSchema.nullable();
 
+export const characterReferenceSchema = z.object({
+  id: characterIdSchema,
+  name: characterNameSchema,
+});
+
 export const characterSchema = z.object({
   id: characterIdSchema,
   name: characterNameSchema,
@@ -36,6 +41,7 @@ export const updateCharacterInputSchema = z.object({
 export const deleteCharacterInputSchema = getCharacterInputSchema;
 
 export type Character = z.infer<typeof characterSchema>;
+export type CharacterReference = z.infer<typeof characterReferenceSchema>;
 export type GetCharacterInput = z.infer<typeof getCharacterInputSchema>;
 export type CreateCharacterInput = z.infer<typeof createCharacterInputSchema>;
 export type UpdateCharacterInput = z.infer<typeof updateCharacterInputSchema>;

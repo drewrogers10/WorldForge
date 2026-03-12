@@ -32,8 +32,11 @@ export const updateLocationInputSchema = z.object({
   summary: locationSummarySchema,
 });
 
+export const deleteLocationInputSchema = getLocationInputSchema;
+
 export type LocationReference = z.infer<typeof locationReferenceSchema>;
 export type Location = z.infer<typeof locationSchema>;
 export type GetLocationInput = z.infer<typeof getLocationInputSchema>;
 export type CreateLocationInput = z.infer<typeof createLocationInputSchema>;
 export type UpdateLocationInput = z.infer<typeof updateLocationInputSchema>;
+export type DeleteLocationInput = z.infer<typeof deleteLocationInputSchema>;
