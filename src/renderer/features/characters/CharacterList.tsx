@@ -34,7 +34,7 @@ export function CharacterList({
           {filteredCharacters.length}/{characters.length}
         </span>
       }
-      title="Characters"
+      title="People"
     >
       <div className="list-controls">
         <label>
@@ -43,20 +43,20 @@ export function CharacterList({
             onChange={(event) => {
               onCharacterSearchChange(event.target.value);
             }}
-            placeholder="Search name, summary, or location"
+            placeholder="Search name, summary, or place"
             value={characterSearch}
           />
         </label>
 
         <label>
-          <span>Filter by location</span>
+          <span>Filter by place</span>
           <select
             onChange={(event) => {
               onCharacterLocationFilterChange(event.target.value);
             }}
             value={characterLocationFilter}
           >
-            <option value="all">All characters</option>
+            <option value="all">All people</option>
             <option value="unassigned">Unassigned only</option>
             {locations.map((location) => (
               <option key={location.id} value={String(location.id)}>
@@ -67,14 +67,14 @@ export function CharacterList({
         </label>
       </div>
 
-      {isLoading ? <p className="muted">Loading characters...</p> : null}
+      {isLoading ? <p className="muted">Loading people...</p> : null}
 
       {!isLoading && characters.length === 0 ? (
-        <p className="muted">No characters yet. Create the first one below.</p>
+        <p className="muted">No people yet. Create the first one below.</p>
       ) : null}
 
       {!isLoading && characters.length > 0 && filteredCharacters.length === 0 ? (
-        <p className="muted">No characters match the current search or filter.</p>
+        <p className="muted">No people match the current search or filter.</p>
       ) : null}
 
       <ul className="entity-list">

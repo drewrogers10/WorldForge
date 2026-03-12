@@ -1,6 +1,6 @@
-# WorldForge Starter
+# WorldForge
 
-Minimal desktop app foundation for WorldForge using Electron, Vite, React, TypeScript, typed IPC, Zod, Drizzle ORM, and SQLite with `better-sqlite3`.
+Desktop app foundation for WorldForge using Electron, Vite, React, TypeScript, typed IPC, Zod, Drizzle ORM, and SQLite with `better-sqlite3`.
 
 ## Run
 
@@ -16,25 +16,37 @@ Minimal desktop app foundation for WorldForge using Electron, Vite, React, TypeS
    npm run dev
    ```
 
-3. Typecheck the full project:
+   That runs Vite in the foreground and opens Electron in the same terminal session.
+
+3. Start the app with managed background start/stop commands:
+
+   ```bash
+   npm run app:start
+   npm run app:status
+   npm run app:stop
+   ```
+
+   The managed wrapper stores its PID and log under `.tmp-vite/`, so you can start and stop the full Vite + Electron session cleanly without leaving orphaned processes behind. Use `npm run app:restart` to recycle the session.
+
+4. Typecheck the full project:
 
    ```bash
    npm run typecheck
    ```
 
-4. Run the focused test suite:
+5. Run the focused test suite:
 
    ```bash
    npm test
    ```
 
-5. Build the renderer and Electron bundles:
+6. Build the renderer and Electron bundles:
 
    ```bash
    npm run build
    ```
 
-6. Generate a new migration after schema changes:
+7. Generate a new migration after schema changes:
 
    ```bash
    npm run db:generate -- --name=add-whatever-you-changed
@@ -46,6 +58,12 @@ The app is intentionally split into narrow layers:
 
 - `src/renderer`
   React UI only. No Node APIs. No direct database access.
+- `src/renderer/components`
+  Reusable shell and panel primitives for the renderer.
+- `src/renderer/features`
+  Entity-specific workspaces and editors. People and places have active UI flows on top of the current character/location model; the other core world areas currently expose guided placeholder workspaces.
+- `src/renderer/lib`
+  Small renderer-only helpers such as form state utilities.
 - `src/preload`
   The only bridge between renderer and Electron. Exposes a very small explicit API on `window.worldForge`.
 - `src/main`
@@ -62,6 +80,8 @@ Data flow for every database operation is:
 `renderer -> preload -> ipcMain handler -> backend service -> db query`
 
 That keeps the renderer isolated from both Node and SQLite while still giving you typed end-to-end calls.
+
+The renderer modularization keeps `src/renderer/App.tsx` focused on data loading, selection state, and top-level view switching while feature components own the workspace markup.
 
 ## Database
 
@@ -80,9 +100,26 @@ That keeps the renderer isolated from both Node and SQLite while still giving yo
 
 The test suite runs under plain Node, not Electron. `npm test` therefore rebuilds `better-sqlite3` for Node before running Vitest, then restores the Electron build afterward so app development still works immediately after the test run.
 
-## Current Model
+## Core World Areas
 
-The app now proves the architecture across two entities and one simple relationship:
+The renderer now exposes the six core world areas:
+
+- `People`
+  Home for characters and other significant individuals.
+- `Places`
+  Home for locations, landmarks, regions, and other geographic anchors.
+- `Powers`
+  Home for major power structures such as nations, blocs, and institutions with world-shaping reach.
+- `Events`
+  Home for major happenings that connect world state to chronology and change.
+- `Items`
+  Home for important objects, artifacts, equipment, goods, and possessions.
+- `Organizations`
+  Home for bounded institutions such as guilds, orders, religions, companies, and local factions.
+
+## Implemented Data Model
+
+The app currently proves the architecture across three entities:
 
 - `Character`
   - `id`
@@ -97,6 +134,17 @@ The app now proves the architecture across two entities and one simple relations
   - `summary`
   - `createdAt`
   - `updatedAt`
+- `Item`
+  - `id`
+  - `name`
+  - `summary`
+  - `quantity`
+  - `ownerCharacterId` nullable foreign key to `Character`
+  - `locationId` nullable foreign key to `Location`
+  - `createdAt`
+  - `updatedAt`
+
+`Character` currently powers the `People` workspace, `Location` powers the `Places` workspace, and `Item` is backend/API-only in the current merge with a guided placeholder workspace in the renderer.
 
 Implemented operations:
 
@@ -109,21 +157,33 @@ Implemented operations:
 - `getLocation`
 - `createLocation`
 - `updateLocation`
+- `listItems`
+- `getItem`
+- `createItem`
+- `updateItem`
+- `deleteItem`
 
 The UI lets you:
 
-- list characters
-- search characters by name, summary, or linked location
-- filter characters by assigned location or unassigned state
-- select a character
-- create a character
-- edit a character
-- delete a character
-- assign or clear a character's linked location
-- list locations
-- create locations
-- edit locations
-- view the selected character's linked location cleanly in the detail panel
+- switch between `People`, `Places`, `Powers`, `Events`, `Items`, and `Organizations`
+- list people
+- search people by name, summary, or linked place
+- filter people by assigned place or unassigned state
+- select a person
+- create a person
+- edit a person
+- delete a person
+- assign or clear a person's linked place
+- list places
+- create places
+- edit places
+- view the selected person's linked place cleanly in the detail panel
+- review the intended scope of powers, events, items, and organizations directly in the app shell
+- see that Item support is merged while renderer CRUD remains intentionally deferred
+
+## Temporal RFC
+
+Temporal support is planned, not implemented. The current RFC lives at [`docs/temporal-data-rfc.md`](docs/temporal-data-rfc.md) and is documentation only for now.
 
 ## Where Future Features Should Go
 

@@ -1,4 +1,4 @@
-import type { WorkspaceView } from '@renderer/lib/forms';
+import { workspaceOptions, type WorkspaceView } from '@renderer/lib/forms';
 
 type SidebarProps = {
   activeView: WorkspaceView;
@@ -16,30 +16,21 @@ export function Sidebar({
   return (
     <div className="shell-sidebar">
       <div className="entity-switcher" aria-label="Entity Workspace">
-        <button
-          aria-pressed={activeView === 'characters'}
-          className={
-            activeView === 'characters' ? 'workspace-button active' : 'workspace-button'
-          }
-          onClick={() => {
-            onViewChange('characters');
-          }}
-          type="button"
-        >
-          Characters
-        </button>
-        <button
-          aria-pressed={activeView === 'locations'}
-          className={
-            activeView === 'locations' ? 'workspace-button active' : 'workspace-button'
-          }
-          onClick={() => {
-            onViewChange('locations');
-          }}
-          type="button"
-        >
-          Locations
-        </button>
+        {workspaceOptions.map((workspace) => (
+          <button
+            key={workspace.id}
+            aria-pressed={activeView === workspace.id}
+            className={
+              activeView === workspace.id ? 'workspace-button active' : 'workspace-button'
+            }
+            onClick={() => {
+              onViewChange(workspace.id);
+            }}
+            type="button"
+          >
+            {workspace.label}
+          </button>
+        ))}
       </div>
 
       <button

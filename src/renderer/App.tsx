@@ -4,6 +4,8 @@ import type { Character } from '@shared/character';
 import type { Location } from '@shared/location';
 import { AppShell } from '@renderer/components/AppShell';
 import { CharacterWorkspace } from '@renderer/features/characters/CharacterWorkspace';
+import { EntityWorkspacePlaceholder } from '@renderer/features/entities/EntityWorkspacePlaceholder';
+import { ItemWorkspacePlaceholder } from '@renderer/features/items/ItemWorkspacePlaceholder';
 import { LocationWorkspace } from '@renderer/features/locations/LocationWorkspace';
 import {
   emptyCharacterForm,
@@ -15,7 +17,7 @@ import {
 } from '@renderer/lib/forms';
 
 export default function App() {
-  const [activeView, setActiveView] = useState<WorkspaceView>('characters');
+  const [activeView, setActiveView] = useState<WorkspaceView>('people');
   const [characters, setCharacters] = useState<Character[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [characterSearch, setCharacterSearch] = useState('');
@@ -289,7 +291,7 @@ export default function App() {
       return;
     }
 
-    if (!window.confirm('Delete this character? This cannot be undone.')) {
+    if (!window.confirm('Delete this person? This cannot be undone.')) {
       return;
     }
 
@@ -381,6 +383,106 @@ export default function App() {
         .length
     : 0;
 
+  const activeWorkspace = (() => {
+    switch (activeView) {
+      case 'people':
+        return (
+          <CharacterWorkspace
+            characterLocationFilter={characterLocationFilter}
+            characterSearch={characterSearch}
+            characters={characters}
+            createCharacterForm={createCharacterForm}
+            editCharacterForm={editCharacterForm}
+            filteredCharacters={filteredCharacters}
+            isCreatingCharacter={isCreatingCharacter}
+            isDeletingCharacter={isDeletingCharacter}
+            isLoadingCharacterDetails={isLoadingCharacterDetails}
+            isLoadingCharacters={isLoadingCharacters}
+            isUpdatingCharacter={isUpdatingCharacter}
+            locations={locations}
+            onCharacterLocationFilterChange={setCharacterLocationFilter}
+            onCharacterSearchChange={setCharacterSearch}
+            onCreateCharacter={handleCreateCharacter}
+            onCreateCharacterFormChange={updateCreateCharacterForm}
+            onDeleteCharacter={handleDeleteCharacter}
+            onEditCharacterFormChange={updateEditCharacterForm}
+            onSelectCharacter={setSelectedCharacterId}
+            onUpdateCharacter={handleUpdateCharacter}
+            selectedCharacter={selectedCharacter}
+            selectedCharacterId={selectedCharacterId}
+          />
+        );
+      case 'places':
+        return (
+          <LocationWorkspace
+            characters={characters}
+            createLocationForm={createLocationForm}
+            editLocationForm={editLocationForm}
+            isCreatingLocation={isCreatingLocation}
+            isLoadingLocationDetails={isLoadingLocationDetails}
+            isLoadingLocations={isLoadingLocations}
+            isUpdatingLocation={isUpdatingLocation}
+            locations={locations}
+            onCreateLocation={handleCreateLocation}
+            onCreateLocationFormChange={updateCreateLocationForm}
+            onEditLocationFormChange={updateEditLocationForm}
+            onSelectLocation={setSelectedLocationId}
+            onUpdateLocation={handleUpdateLocation}
+            selectedLocation={selectedLocation}
+            selectedLocationCharacterCount={selectedLocationCharacterCount}
+            selectedLocationId={selectedLocationId}
+          />
+        );
+      case 'powers':
+        return (
+          <EntityWorkspacePlaceholder
+            title="Powers"
+            description="Major power structures shape control, balance, and reach across the setting."
+            focusAreas={[
+              'Nations and world powers',
+              'Political blocs and international groupings',
+              'Institutions that project influence at scale',
+              'Other forces that shape control, balance, or reach',
+            ]}
+            implementationNote="This workspace is now present in the app structure. Structured power records and editing flows have not been implemented yet."
+            scopeNote="Treat power here as political, institutional, or otherwise world-shaping influence rather than only individual abilities."
+          />
+        );
+      case 'events':
+        return (
+          <EntityWorkspacePlaceholder
+            title="Events"
+            description="Events connect static world data to history, causality, and story movement."
+            focusAreas={[
+              'What happened',
+              'When it happened',
+              'Where it happened',
+              'Who was involved',
+              'What changed because of it',
+            ]}
+            implementationNote="This workspace is now represented in navigation and world planning. Event authoring and chronology tools remain future work."
+          />
+        );
+      case 'items':
+        return <ItemWorkspacePlaceholder />;
+      case 'organizations':
+        return (
+          <EntityWorkspacePlaceholder
+            title="Organizations"
+            description="Organizations cover the in-world structures that operate between individuals and major world powers."
+            focusAreas={[
+              'Academies, guilds, and orders',
+              'Military units and forces',
+              'Religions and companies',
+              'Local factions and institutions',
+            ]}
+            implementationNote="This workspace is now present in the app structure. Structured organization records and editing flows have not been implemented yet."
+            scopeNote="Use organizations for bounded groups and institutions rather than the large-scale power structures tracked in Powers."
+          />
+        );
+    }
+  })();
+
   return (
     <AppShell
       activeView={activeView}
@@ -389,51 +491,7 @@ export default function App() {
       onRefresh={handleRefreshAll}
       onViewChange={setActiveView}
     >
-      {activeView === 'characters' ? (
-        <CharacterWorkspace
-          characterLocationFilter={characterLocationFilter}
-          characterSearch={characterSearch}
-          characters={characters}
-          createCharacterForm={createCharacterForm}
-          editCharacterForm={editCharacterForm}
-          filteredCharacters={filteredCharacters}
-          isCreatingCharacter={isCreatingCharacter}
-          isDeletingCharacter={isDeletingCharacter}
-          isLoadingCharacterDetails={isLoadingCharacterDetails}
-          isLoadingCharacters={isLoadingCharacters}
-          isUpdatingCharacter={isUpdatingCharacter}
-          locations={locations}
-          onCharacterLocationFilterChange={setCharacterLocationFilter}
-          onCharacterSearchChange={setCharacterSearch}
-          onCreateCharacter={handleCreateCharacter}
-          onCreateCharacterFormChange={updateCreateCharacterForm}
-          onDeleteCharacter={handleDeleteCharacter}
-          onEditCharacterFormChange={updateEditCharacterForm}
-          onSelectCharacter={setSelectedCharacterId}
-          onUpdateCharacter={handleUpdateCharacter}
-          selectedCharacter={selectedCharacter}
-          selectedCharacterId={selectedCharacterId}
-        />
-      ) : (
-        <LocationWorkspace
-          characters={characters}
-          createLocationForm={createLocationForm}
-          editLocationForm={editLocationForm}
-          isCreatingLocation={isCreatingLocation}
-          isLoadingLocationDetails={isLoadingLocationDetails}
-          isLoadingLocations={isLoadingLocations}
-          isUpdatingLocation={isUpdatingLocation}
-          locations={locations}
-          onCreateLocation={handleCreateLocation}
-          onCreateLocationFormChange={updateCreateLocationForm}
-          onEditLocationFormChange={updateEditLocationForm}
-          onSelectLocation={setSelectedLocationId}
-          onUpdateLocation={handleUpdateLocation}
-          selectedLocation={selectedLocation}
-          selectedLocationCharacterCount={selectedLocationCharacterCount}
-          selectedLocationId={selectedLocationId}
-        />
-      )}
+      {activeWorkspace}
     </AppShell>
   );
 }

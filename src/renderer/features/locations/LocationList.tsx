@@ -26,11 +26,11 @@ export function LocationList({
   }, new Map());
 
   return (
-    <Panel badge={<span className="pill">{locations.length}</span>} title="Locations">
-      {isLoading ? <p className="muted">Loading locations...</p> : null}
+    <Panel badge={<span className="pill">{locations.length}</span>} title="Places">
+      {isLoading ? <p className="muted">Loading places...</p> : null}
 
       {!isLoading && locations.length === 0 ? (
-        <p className="muted">No locations yet. Create the first one below.</p>
+        <p className="muted">No places yet. Create the first one below.</p>
       ) : null}
 
       <ul className="entity-list">
@@ -50,7 +50,7 @@ export function LocationList({
               <div className="entity-list-heading">
                 <strong>{location.name}</strong>
                 <span className="pill small">
-                  {linkedCharacterCounts.get(location.id) ?? 0} linked
+                  {linkedCharacterCounts.get(location.id) ?? 0} people
                 </span>
               </div>
               <span>{location.summary || 'No summary yet.'}</span>

@@ -7,6 +7,10 @@
   "main": "dist-electron/main/index.js",
   "scripts": {
     "dev": "vite",
+    "app:start": "node scripts/dev-session.mjs start",
+    "app:stop": "node scripts/dev-session.mjs stop",
+    "app:restart": "node scripts/dev-session.mjs restart",
+    "app:status": "node scripts/dev-session.mjs status",
     "build": "npm run typecheck && vite build",
     "typecheck": "tsc -b",
     "pretest": "npm run rebuild:native:node",

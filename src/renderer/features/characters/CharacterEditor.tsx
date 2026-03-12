@@ -37,7 +37,7 @@ export function CharacterEditor({
 }: CharacterEditorProps) {
   if (mode === 'create') {
     return (
-      <Panel title="Create Character">
+      <Panel title="Create Person">
         <form className="form" onSubmit={onSubmit}>
           <label>
             <span>Name</span>
@@ -59,14 +59,14 @@ export function CharacterEditor({
               onChange={(event) => {
                 onFormChange({ summary: event.target.value });
               }}
-              placeholder="A short note about the character."
+              placeholder="A short note about the person."
               rows={6}
               value={form.summary}
             />
           </label>
 
           <label>
-            <span>Location</span>
+            <span>Place</span>
             <select
               name="locationId"
               onChange={(event) => {
@@ -84,7 +84,7 @@ export function CharacterEditor({
           </label>
 
           <button disabled={isSubmitting} type="submit">
-            {isSubmitting ? 'Creating...' : 'Create Character'}
+            {isSubmitting ? 'Creating...' : 'Create Person'}
           </button>
         </form>
       </Panel>
@@ -95,14 +95,14 @@ export function CharacterEditor({
     <Panel
       badge={character ? <span className="pill">#{character.id}</span> : null}
       className="details-panel"
-      title="Selected Character"
+      title="Selected Person"
     >
       {selectedCharacterId === null ? (
-        <p className="muted">Select a character to view and edit it.</p>
+        <p className="muted">Select a person to view and edit them.</p>
       ) : null}
 
       {selectedCharacterId !== null && isLoading ? (
-        <p className="muted">Loading character details...</p>
+        <p className="muted">Loading person details...</p>
       ) : null}
 
       {character ? (
@@ -117,17 +117,17 @@ export function CharacterEditor({
               <dd>{new Date(character.updatedAt).toLocaleString()}</dd>
             </div>
             <div>
-              <dt>Linked Location</dt>
+              <dt>Linked Place</dt>
               <dd>{character.location?.name ?? 'Unassigned'}</dd>
             </div>
           </dl>
 
           <div className="linked-card">
-            <p className="card-title">Location Link</p>
+            <p className="card-title">Place Link</p>
             <p className="muted helper-text">
               {character.location
                 ? `${character.name} is currently linked to ${character.location.name}.`
-                : 'This character is currently unassigned.'}
+                : 'This person is currently unassigned.'}
             </p>
           </div>
 
@@ -157,7 +157,7 @@ export function CharacterEditor({
             </label>
 
             <label>
-              <span>Location</span>
+              <span>Place</span>
               <select
                 name="locationId"
                 onChange={(event) => {
@@ -176,7 +176,7 @@ export function CharacterEditor({
 
             {locations.length === 0 ? (
               <p className="muted helper-text">
-                No saved locations yet. Switch to the Locations workspace to add one.
+                No saved places yet. Switch to the Places workspace to add one.
               </p>
             ) : null}
 
@@ -192,7 +192,7 @@ export function CharacterEditor({
                 }}
                 type="button"
               >
-                {isDeleting ? 'Deleting...' : 'Delete Character'}
+                {isDeleting ? 'Deleting...' : 'Delete Person'}
               </button>
             </div>
           </form>

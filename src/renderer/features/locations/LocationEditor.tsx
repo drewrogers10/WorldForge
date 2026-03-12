@@ -28,7 +28,7 @@ export function LocationEditor({
 }: LocationEditorProps) {
   if (mode === 'create') {
     return (
-      <Panel title="Create Location">
+      <Panel title="Create Place">
         <form className="form" onSubmit={onSubmit}>
           <label>
             <span>Name</span>
@@ -50,14 +50,14 @@ export function LocationEditor({
               onChange={(event) => {
                 onFormChange({ summary: event.target.value });
               }}
-              placeholder="A short note about the location."
+              placeholder="A short note about the place."
               rows={6}
               value={form.summary}
             />
           </label>
 
           <button disabled={isSubmitting} type="submit">
-            {isSubmitting ? 'Creating...' : 'Create Location'}
+            {isSubmitting ? 'Creating...' : 'Create Place'}
           </button>
         </form>
       </Panel>
@@ -68,14 +68,14 @@ export function LocationEditor({
     <Panel
       badge={location ? <span className="pill">#{location.id}</span> : null}
       className="details-panel"
-      title="Selected Location"
+      title="Selected Place"
     >
       {selectedLocationId === null ? (
-        <p className="muted">Select a location to view and edit it.</p>
+        <p className="muted">Select a place to view and edit it.</p>
       ) : null}
 
       {selectedLocationId !== null && isLoading ? (
-        <p className="muted">Loading location details...</p>
+        <p className="muted">Loading place details...</p>
       ) : null}
 
       {location ? (
@@ -90,7 +90,7 @@ export function LocationEditor({
               <dd>{new Date(location.updatedAt).toLocaleString()}</dd>
             </div>
             <div>
-              <dt>Linked Characters</dt>
+              <dt>Linked People</dt>
               <dd>{linkedCharacterCount}</dd>
             </div>
           </dl>

@@ -133,6 +133,10 @@ textarea {
   min-height: 32rem;
 }
 
+.entity-placeholder-panel {
+  grid-column: 1 / -1;
+}
+
 .pill {
   border-radius: 999px;
   color: #b9cdef;
@@ -168,6 +172,7 @@ textarea {
 
 .entity-switcher {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.6rem;
 }
 
@@ -281,6 +286,16 @@ textarea {
 
 .helper-text {
   margin: 0;
+}
+
+.placeholder-list {
+  margin: 0;
+  padding-left: 1.2rem;
+  color: #dfe8f8;
+}
+
+.placeholder-list li + li {
+  margin-top: 0.4rem;
 }
 
 .secondary-button {

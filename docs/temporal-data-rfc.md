@@ -17,6 +17,11 @@ WorldForge should adopt a **valid-time temporal model** built on:
 
 This is the smallest robust foundation that can support a universal time slider, time-sliced entity views, map evolution, movement history, and future relationship history in SQLite without forcing an event-sourced architecture.
 
+## Implementation Note
+
+This RFC is documentation only in the current merge. It does not add
+time-slider UI, temporal IPC, or temporal runtime tables yet.
+
 ## Current State
 
 Today the app has:
@@ -25,6 +30,9 @@ Today the app has:
   - `id`, `name`, `summary`, `location_id`, `created_at`, `updated_at`
 - `locations`
   - `id`, `name`, `summary`, `created_at`, `updated_at`
+- `items`
+  - `id`, `name`, `summary`, `quantity`, `owner_character_id`, `location_id`,
+    `created_at`, `updated_at`
 
 Important properties of the current codebase:
 
