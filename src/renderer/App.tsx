@@ -5,7 +5,7 @@ import type { WorkspaceView } from '@renderer/lib/forms';
 
 export default function App() {
   const workshopRef = useRef<WorldWorkshopHandle>(null);
-  const [activeView, setActiveView] = useState<WorkspaceView>('people');
+  const [activeView, setActiveView] = useState<WorkspaceView>('overview');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isRefreshingAll, setIsRefreshingAll] = useState(false);
 
@@ -30,6 +30,7 @@ export default function App() {
       <WorldWorkshop
         activeView={activeView}
         onErrorChange={setErrorMessage}
+        onViewChange={setActiveView}
         ref={workshopRef}
       />
     </AppShell>

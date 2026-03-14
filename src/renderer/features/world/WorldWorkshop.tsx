@@ -7,6 +7,7 @@ import { CharacterWorkspace } from '@renderer/features/characters/CharacterWorks
 import { EntityWorkspacePlaceholder } from '@renderer/features/entities/EntityWorkspacePlaceholder';
 import { ItemWorkspace } from '@renderer/features/items/ItemWorkspace';
 import { LocationWorkspace } from '@renderer/features/locations/LocationWorkspace';
+import { WorldOverview } from '@renderer/features/world/WorldOverview';
 import {
   emptyCharacterForm,
   emptyItemForm,
@@ -25,10 +26,11 @@ export type WorldWorkshopHandle = {
 type WorldWorkshopProps = {
   activeView: WorkspaceView;
   onErrorChange: (message: string | null) => void;
+  onViewChange: (view: WorkspaceView) => void;
 };
 
 export const WorldWorkshop = forwardRef<WorldWorkshopHandle, WorldWorkshopProps>(
-  function WorldWorkshop({ activeView, onErrorChange }, ref) {
+  function WorldWorkshop({ activeView, onErrorChange, onViewChange }, ref) {
     const [characters, setCharacters] = useState<Character[]>([]);
     const [locations, setLocations] = useState<Location[]>([]);
     const [items, setItems] = useState<Item[]>([]);
@@ -608,6 +610,16 @@ export const WorldWorkshop = forwardRef<WorldWorkshopHandle, WorldWorkshopProps>
       : 0;
 
     switch (activeView) {
+      case 'overview':
+        return (
+          <WorldOverview
+            characters={characters}
+            isLoading={isLoadingCharacters || isLoadingLocations || isLoadingItems}
+            items={items}
+            locations={locations}
+            onViewChange={onViewChange}
+          />
+        );
       case 'people':
         return (
           <CharacterWorkspace

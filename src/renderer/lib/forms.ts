@@ -3,6 +3,7 @@ import type { CreateItemInput } from '@shared/item';
 import type { CreateLocationInput } from '@shared/location';
 
 export type WorkspaceView =
+  | 'overview'
   | 'people'
   | 'places'
   | 'powers'
@@ -14,6 +15,7 @@ export type ItemFormState = CreateItemInput;
 export type LocationFormState = CreateLocationInput;
 
 export const workspaceOptions: Array<{ id: WorkspaceView; label: string }> = [
+  { id: 'overview', label: 'Overview' },
   { id: 'people', label: 'People' },
   { id: 'places', label: 'Places' },
   { id: 'powers', label: 'Powers' },
