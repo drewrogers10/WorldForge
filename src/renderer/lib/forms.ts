@@ -14,14 +14,62 @@ export type CharacterFormState = CreateCharacterInput;
 export type ItemFormState = CreateItemInput;
 export type LocationFormState = CreateLocationInput;
 
-export const workspaceOptions: Array<{ id: WorkspaceView; label: string }> = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'people', label: 'People' },
-  { id: 'places', label: 'Places' },
-  { id: 'powers', label: 'Powers' },
-  { id: 'events', label: 'Events' },
-  { id: 'items', label: 'Items' },
-  { id: 'organizations', label: 'Organizations' },
+export type WorkspaceOption = {
+  description: string;
+  group: 'Workspace' | 'Atlas' | 'Lore';
+  id: WorkspaceView;
+  label: string;
+};
+
+export const workspaceOptions: WorkspaceOption[] = [
+  {
+    id: 'overview',
+    label: 'Overview',
+    description: 'Review world coverage, recent additions, and where to work next.',
+    group: 'Workspace',
+  },
+  {
+    id: 'people',
+    label: 'People',
+    description: 'Track your cast, connections, and where each person belongs.',
+    group: 'Atlas',
+  },
+  {
+    id: 'places',
+    label: 'Places',
+    description: 'Organize regions, settlements, and the anchors of your setting.',
+    group: 'Atlas',
+  },
+  {
+    id: 'items',
+    label: 'Items',
+    description: 'Manage artifacts, gear, and loose assets across the world.',
+    group: 'Atlas',
+  },
+  {
+    id: 'powers',
+    label: 'Powers',
+    description: 'Outline systems of magic, abilities, and exceptional forces.',
+    group: 'Lore',
+  },
+  {
+    id: 'events',
+    label: 'Events',
+    description: 'Map timelines, turning points, and the history of the world.',
+    group: 'Lore',
+  },
+  {
+    id: 'organizations',
+    label: 'Organizations',
+    description: 'Catalog factions, institutions, and shared agendas.',
+    group: 'Lore',
+  },
+];
+
+export const workspaceGroups: Array<WorkspaceOption['group']> = [
+  'Workspace',
+  'Atlas',
+  'Lore',
 ];
 
 export const emptyCharacterForm = (): CharacterFormState => ({
