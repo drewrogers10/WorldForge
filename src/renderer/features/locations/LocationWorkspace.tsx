@@ -1,11 +1,13 @@
 import type { FormEvent } from 'react';
 import type { Character } from '@shared/character';
 import type { Location } from '@shared/location';
+import type { TemporalDetailStatus } from '@shared/temporal';
 import type { LocationFormState } from '@renderer/lib/forms';
 import { LocationEditor } from './LocationEditor';
 import { LocationList } from './LocationList';
 
 type LocationWorkspaceProps = {
+  changedLocationIds: ReadonlySet<number>;
   characters: Character[];
   createLocationForm: LocationFormState;
   editLocationForm: LocationFormState;
@@ -25,9 +27,12 @@ type LocationWorkspaceProps = {
   selectedLocation: Location | null;
   selectedLocationCharacterCount: number;
   selectedLocationId: number | null;
+  selectedLocationStatus: TemporalDetailStatus;
+  tick: number;
 };
 
 export function LocationWorkspace({
+  changedLocationIds,
   characters,
   createLocationForm,
   editLocationForm,
@@ -47,11 +52,14 @@ export function LocationWorkspace({
   selectedLocation,
   selectedLocationCharacterCount,
   selectedLocationId,
+  selectedLocationStatus,
+  tick,
 }: LocationWorkspaceProps) {
   return (
     <main className="content-grid">
       <LocationList
         characters={characters}
+        changedLocationIds={changedLocationIds}
         isLoading={isLoadingLocations}
         locations={locations}
         onSelectLocation={onSelectLocation}
@@ -71,6 +79,8 @@ export function LocationWorkspace({
         onFormChange={onEditLocationFormChange}
         onSubmit={onUpdateLocation}
         selectedLocationId={selectedLocationId}
+        selectedLocationStatus={selectedLocationStatus}
+        tick={tick}
       />
 
       <LocationEditor
@@ -83,6 +93,8 @@ export function LocationWorkspace({
         onFormChange={onCreateLocationFormChange}
         onSubmit={onCreateLocation}
         selectedLocationId={selectedLocationId}
+        selectedLocationStatus="active"
+        tick={tick}
       />
     </main>
   );

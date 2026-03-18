@@ -5,6 +5,7 @@ import { Panel } from '@renderer/components/Panel';
 type CharacterListProps = {
   characterLocationFilter: string;
   characterSearch: string;
+  changedCharacterIds: ReadonlySet<number>;
   characters: Character[];
   filteredCharacters: Character[];
   isLoading: boolean;
@@ -18,6 +19,7 @@ type CharacterListProps = {
 export function CharacterList({
   characterLocationFilter,
   characterSearch,
+  changedCharacterIds,
   characters,
   filteredCharacters,
   isLoading,
@@ -93,9 +95,14 @@ export function CharacterList({
             >
               <div className="entity-list-heading">
                 <strong>{character.name}</strong>
-                <span className={character.location ? 'pill small' : 'pill subtle'}>
-                  {character.location?.name ?? 'Unassigned'}
-                </span>
+                <div className="entity-list-pills">
+                  {changedCharacterIds.has(character.id) ? (
+                    <span className="pill small highlight">Changed</span>
+                  ) : null}
+                  <span className={character.location ? 'pill small' : 'pill subtle'}>
+                    {character.location?.name ?? 'Unassigned'}
+                  </span>
+                </div>
               </div>
               <span>{character.summary || 'No summary yet.'}</span>
             </button>

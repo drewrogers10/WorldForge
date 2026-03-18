@@ -2,6 +2,7 @@ import type { Item } from '@shared/item';
 import { Panel } from '@renderer/components/Panel';
 
 type ItemListProps = {
+  changedItemIds: ReadonlySet<number>;
   filteredItems: Item[];
   isLoading: boolean;
   itemAssignmentFilter: string;
@@ -26,6 +27,7 @@ function describeAssignment(item: Item): string {
 }
 
 export function ItemList({
+  changedItemIds,
   filteredItems,
   isLoading,
   itemAssignmentFilter,
@@ -97,7 +99,12 @@ export function ItemList({
             >
               <div className="entity-list-heading">
                 <strong>{item.name}</strong>
-                <span className="pill small">Qty {item.quantity}</span>
+                <div className="entity-list-pills">
+                  {changedItemIds.has(item.id) ? (
+                    <span className="pill small highlight">Changed</span>
+                  ) : null}
+                  <span className="pill small">Qty {item.quantity}</span>
+                </div>
               </div>
               <span>{describeAssignment(item)}</span>
               <span>{item.summary || 'No summary yet.'}</span>

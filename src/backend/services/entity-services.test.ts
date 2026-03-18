@@ -18,29 +18,35 @@ describe('entity services', () => {
     context = undefined;
   });
 
-  it('supports location CRUD and character CRUD with location links', () => {
+  it('supports temporal location CRUD and character CRUD with location links', () => {
     const locationService = createLocationService(context!.db);
     const characterService = createCharacterService(context!.db);
 
     const coast = locationService.createLocation({
       name: '  Glass Coast  ',
       summary: '  A bright, storm-cut shoreline.  ',
+      effectiveTick: 10,
     });
     const bastion = locationService.createLocation({
       name: 'North Bastion',
       summary: 'Fortress city above the fog line.',
+      effectiveTick: 20,
     });
 
     expect(locationService.listLocations()).toHaveLength(2);
     expect(locationService.getLocation({ id: coast.id })).toMatchObject({
-      id: coast.id,
-      name: 'Glass Coast',
+      status: 'active',
+      record: expect.objectContaining({
+        id: coast.id,
+        name: 'Glass Coast',
+      }),
     });
 
     const createdCharacter = characterService.createCharacter({
       name: '  Aeris Vale  ',
       summary: '  Scout captain.  ',
       locationId: coast.id,
+      effectiveTick: 25,
     });
 
     expect(createdCharacter).toMatchObject({
@@ -53,15 +59,17 @@ describe('entity services', () => {
       },
     });
 
-    const loadedCharacter = characterService.getCharacter({ id: createdCharacter.id });
-
-    expect(loadedCharacter).toMatchObject({
+    const loadedAtCreation = characterService.getCharacter({
       id: createdCharacter.id,
-      locationId: coast.id,
-      location: {
-        id: coast.id,
-        name: 'Glass Coast',
-      },
+      asOfTick: 25,
+    });
+
+    expect(loadedAtCreation).toMatchObject({
+      status: 'active',
+      record: expect.objectContaining({
+        id: createdCharacter.id,
+        locationId: coast.id,
+      }),
     });
 
     const updatedCharacter = characterService.updateCharacter({
@@ -69,6 +77,7 @@ describe('entity services', () => {
       name: 'Aeris Vale',
       summary: 'Lead scout of the western watch.',
       locationId: bastion.id,
+      effectiveTick: 40,
     });
 
     expect(updatedCharacter).toMatchObject({
@@ -80,28 +89,58 @@ describe('entity services', () => {
       },
     });
 
-    characterService.deleteCharacter({ id: createdCharacter.id });
-    locationService.deleteLocation({ id: coast.id });
-    locationService.deleteLocation({ id: bastion.id });
+    expect(
+      characterService.getCharacter({ id: createdCharacter.id, asOfTick: 30 }),
+    ).toMatchObject({
+      status: 'active',
+      record: expect.objectContaining({
+        locationId: coast.id,
+      }),
+    });
+    expect(
+      characterService.getCharacter({ id: createdCharacter.id, asOfTick: 45 }),
+    ).toMatchObject({
+      status: 'active',
+      record: expect.objectContaining({
+        locationId: bastion.id,
+      }),
+    });
+
+    characterService.deleteCharacter({ id: createdCharacter.id, effectiveTick: 60 });
+    locationService.deleteLocation({ id: coast.id, effectiveTick: 70 });
+    locationService.deleteLocation({ id: bastion.id, effectiveTick: 80 });
 
     expect(characterService.listCharacters()).toEqual([]);
-    expect(characterService.getCharacter({ id: createdCharacter.id })).toBeNull();
+    expect(characterService.getCharacter({ id: createdCharacter.id, asOfTick: 50 })).toMatchObject(
+      {
+        status: 'active',
+        record: expect.objectContaining({
+          id: createdCharacter.id,
+        }),
+      },
+    );
+    expect(characterService.getCharacter({ id: createdCharacter.id, asOfTick: 65 })).toEqual({
+      status: 'ended',
+      record: null,
+    });
     expect(locationService.listLocations()).toEqual([]);
   });
 
-  it('rejects characters linked to missing locations and updates locations', () => {
+  it('rejects characters linked to missing or inactive locations and updates locations', () => {
     const locationService = createLocationService(context!.db);
     const characterService = createCharacterService(context!.db);
 
     const coast = locationService.createLocation({
       name: 'Glass Coast',
       summary: 'A bright, storm-cut shoreline.',
+      effectiveTick: 10,
     });
 
     const character = characterService.createCharacter({
       name: 'Mira Thorne',
       summary: 'Harbor scribe.',
       locationId: null,
+      effectiveTick: 15,
     });
 
     expect(() =>
@@ -109,8 +148,21 @@ describe('entity services', () => {
         name: 'Broken Link',
         summary: '',
         locationId: 999_999,
+        effectiveTick: 20,
       }),
     ).toThrow('Location 999999 does not exist.');
+
+    locationService.deleteLocation({ id: coast.id, effectiveTick: 30 });
+
+    expect(() =>
+      characterService.updateCharacter({
+        id: character.id,
+        name: 'Mira Thorne',
+        summary: 'Harbor scribe.',
+        locationId: coast.id,
+        effectiveTick: 35,
+      }),
+    ).toThrow(`Location ${coast.id} is not active at tick 35.`);
 
     expect(() =>
       characterService.updateCharacter({
@@ -118,20 +170,21 @@ describe('entity services', () => {
         name: 'Mira Thorne',
         summary: 'Harbor scribe.',
         locationId: 999_999,
+        effectiveTick: 35,
       }),
     ).toThrow('Location 999999 does not exist.');
 
-    const updatedLocation = locationService.updateLocation({
-      id: coast.id,
-      name: 'Glass Coast',
-      summary: 'A bright, storm-cut shoreline with rebuilt harbors.',
+    const updatedLocation = locationService.createLocation({
+      name: 'Renewed Coast',
+      summary: 'A rebuilt harbor frontier.',
+      effectiveTick: 40,
     });
 
-    expect(updatedLocation.summary).toContain('rebuilt harbors');
-    expect(locationService.listLocations()[0]?.summary).toContain('rebuilt harbors');
+    expect(updatedLocation.summary).toContain('rebuilt harbor frontier');
+    expect(locationService.listLocations()[0]?.summary).toContain('rebuilt harbor frontier');
   });
 
-  it('clears character and item location links when deleting a place', () => {
+  it('clears character and item location links when ending a place', () => {
     const locationService = createLocationService(context!.db);
     const characterService = createCharacterService(context!.db);
     const itemService = createItemService(context!.db);
@@ -139,11 +192,13 @@ describe('entity services', () => {
     const harbor = locationService.createLocation({
       name: 'Harbor Reach',
       summary: 'A busy port district.',
+      effectiveTick: 10,
     });
     const scribe = characterService.createCharacter({
       name: 'Caro Fen',
       summary: 'Port registrar.',
       locationId: harbor.id,
+      effectiveTick: 15,
     });
     const ledger = itemService.createItem({
       name: 'Harbor Ledger',
@@ -151,17 +206,30 @@ describe('entity services', () => {
       quantity: 1,
       ownerCharacterId: null,
       locationId: harbor.id,
+      effectiveTick: 15,
     });
 
-    locationService.deleteLocation({ id: harbor.id });
+    locationService.deleteLocation({ id: harbor.id, effectiveTick: 25 });
 
-    expect(characterService.getCharacter({ id: scribe.id })).toMatchObject({
-      locationId: null,
-      location: null,
+    expect(characterService.getCharacter({ id: scribe.id, asOfTick: 24 })).toMatchObject({
+      status: 'active',
+      record: expect.objectContaining({
+        locationId: harbor.id,
+      }),
     });
-    expect(itemService.getItem({ id: ledger.id })).toMatchObject({
-      locationId: null,
-      location: null,
+    expect(characterService.getCharacter({ id: scribe.id, asOfTick: 30 })).toMatchObject({
+      status: 'active',
+      record: expect.objectContaining({
+        locationId: null,
+        location: null,
+      }),
+    });
+    expect(itemService.getItem({ id: ledger.id, asOfTick: 30 })).toMatchObject({
+      status: 'active',
+      record: expect.objectContaining({
+        locationId: null,
+        location: null,
+      }),
     });
   });
 });

@@ -1,16 +1,6 @@
-import { desc, eq } from 'drizzle-orm';
+import { desc, eq, isNull } from 'drizzle-orm';
 import type { AppDatabase } from '../client';
 import { characters, locations } from '../schema';
-
-const characterSelection = {
-  id: characters.id,
-  name: characters.name,
-  summary: characters.summary,
-  locationId: characters.locationId,
-  locationName: locations.name,
-  createdAt: characters.createdAt,
-  updatedAt: characters.updatedAt,
-};
 
 export type CharacterRecord = {
   id: number;
@@ -18,6 +8,8 @@ export type CharacterRecord = {
   summary: string;
   locationId: number | null;
   locationName: string | null;
+  existsFromTick: number;
+  existsToTick: number | null;
   createdAt: number;
   updatedAt: number;
 };
@@ -26,18 +18,34 @@ type CreateCharacterRowInput = {
   name: string;
   summary: string;
   locationId: number | null;
+  existsFromTick: number;
+  existsToTick?: number | null;
   createdAt: number;
   updatedAt: number;
 };
 
-type UpdateCharacterRowInput = {
+type UpdateCharacterRowInput = Partial<{
   name: string;
   summary: string;
   locationId: number | null;
+  existsFromTick: number;
+  existsToTick: number | null;
   updatedAt: number;
+}>;
+
+const characterSelection = {
+  id: characters.id,
+  name: characters.name,
+  summary: characters.summary,
+  locationId: characters.locationId,
+  locationName: locations.name,
+  existsFromTick: characters.existsFromTick,
+  existsToTick: characters.existsToTick,
+  createdAt: characters.createdAt,
+  updatedAt: characters.updatedAt,
 };
 
-function createCharacterQuery(db: AppDatabase) {
+function createCurrentCharacterQuery(db: AppDatabase) {
   return db
     .select(characterSelection)
     .from(characters)
@@ -45,7 +53,8 @@ function createCharacterQuery(db: AppDatabase) {
 }
 
 export function listCharacterRows(db: AppDatabase): CharacterRecord[] {
-  return createCharacterQuery(db)
+  return createCurrentCharacterQuery(db)
+    .where(isNull(characters.existsToTick))
     .orderBy(desc(characters.updatedAt), desc(characters.id))
     .all();
 }
@@ -54,7 +63,103 @@ export function getCharacterRow(
   db: AppDatabase,
   id: number,
 ): CharacterRecord | undefined {
-  return createCharacterQuery(db).where(eq(characters.id, id)).get();
+  return createCurrentCharacterQuery(db).where(eq(characters.id, id)).get();
+}
+
+export function getCharacterRowAsOf(
+  db: AppDatabase,
+  id: number,
+  tick: number,
+): CharacterRecord | undefined {
+  const statement = db.$client.prepare(
+    `
+      SELECT
+        c.id,
+        cv.name,
+        cv.summary,
+        cls.location_id AS locationId,
+        lv.name AS locationName,
+        c.exists_from_tick AS existsFromTick,
+        c.exists_to_tick AS existsToTick,
+        c.created_at AS createdAt,
+        c.updated_at AS updatedAt
+      FROM characters c
+      JOIN character_versions cv
+        ON cv.character_id = c.id
+       AND cv.valid_from <= ?
+       AND (cv.valid_to IS NULL OR ? < cv.valid_to)
+      LEFT JOIN character_location_spans cls
+        ON cls.character_id = c.id
+       AND cls.valid_from <= ?
+       AND (cls.valid_to IS NULL OR ? < cls.valid_to)
+      LEFT JOIN location_versions lv
+        ON lv.location_id = cls.location_id
+       AND lv.valid_from <= ?
+       AND (lv.valid_to IS NULL OR ? < lv.valid_to)
+      WHERE c.id = ?
+        AND c.exists_from_tick <= ?
+        AND (c.exists_to_tick IS NULL OR ? < c.exists_to_tick)
+    `,
+  );
+
+  return statement.get(
+    tick,
+    tick,
+    tick,
+    tick,
+    tick,
+    tick,
+    id,
+    tick,
+    tick,
+  ) as CharacterRecord | undefined;
+}
+
+export function listCharacterRowsAsOf(
+  db: AppDatabase,
+  tick: number,
+): CharacterRecord[] {
+  const statement = db.$client.prepare(
+    `
+      SELECT
+        c.id,
+        cv.name,
+        cv.summary,
+        cls.location_id AS locationId,
+        lv.name AS locationName,
+        c.exists_from_tick AS existsFromTick,
+        c.exists_to_tick AS existsToTick,
+        c.created_at AS createdAt,
+        c.updated_at AS updatedAt
+      FROM characters c
+      JOIN character_versions cv
+        ON cv.character_id = c.id
+       AND cv.valid_from <= ?
+       AND (cv.valid_to IS NULL OR ? < cv.valid_to)
+      LEFT JOIN character_location_spans cls
+        ON cls.character_id = c.id
+       AND cls.valid_from <= ?
+       AND (cls.valid_to IS NULL OR ? < cls.valid_to)
+      LEFT JOIN location_versions lv
+        ON lv.location_id = cls.location_id
+       AND lv.valid_from <= ?
+       AND (lv.valid_to IS NULL OR ? < lv.valid_to)
+      WHERE c.exists_from_tick <= ?
+        AND (c.exists_to_tick IS NULL OR ? < c.exists_to_tick)
+      ORDER BY c.updated_at DESC, c.id DESC
+    `,
+  );
+
+  return statement.all(
+    tick,
+    tick,
+    tick,
+    tick,
+    tick,
+    tick,
+    tick,
+    tick,
+  ) as CharacterRecord[];
 }
 
 export function createCharacterRow(
@@ -85,12 +190,4 @@ export function updateCharacterRow(
   }
 
   return updated;
-}
-
-export function deleteCharacterRow(db: AppDatabase, id: number): void {
-  const result = db.delete(characters).where(eq(characters.id, id)).run();
-
-  if (result.changes === 0) {
-    throw new Error(`Character ${id} does not exist.`);
-  }
 }

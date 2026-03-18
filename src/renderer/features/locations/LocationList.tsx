@@ -4,6 +4,7 @@ import { Panel } from '@renderer/components/Panel';
 
 type LocationListProps = {
   characters: Character[];
+  changedLocationIds: ReadonlySet<number>;
   isLoading: boolean;
   locations: Location[];
   onSelectLocation: (id: number) => void;
@@ -12,6 +13,7 @@ type LocationListProps = {
 
 export function LocationList({
   characters,
+  changedLocationIds,
   isLoading,
   locations,
   onSelectLocation,
@@ -49,9 +51,14 @@ export function LocationList({
             >
               <div className="entity-list-heading">
                 <strong>{location.name}</strong>
-                <span className="pill small">
-                  {linkedCharacterCounts.get(location.id) ?? 0} people
-                </span>
+                <div className="entity-list-pills">
+                  {changedLocationIds.has(location.id) ? (
+                    <span className="pill small highlight">Changed</span>
+                  ) : null}
+                  <span className="pill small">
+                    {linkedCharacterCounts.get(location.id) ?? 0} people
+                  </span>
+                </div>
               </div>
               <span>{location.summary || 'No summary yet.'}</span>
             </button>

@@ -2,6 +2,7 @@ import type { FormEvent } from 'react';
 import type { Character } from '@shared/character';
 import type { Item } from '@shared/item';
 import type { Location } from '@shared/location';
+import type { TemporalDetailStatus } from '@shared/temporal';
 import { Panel } from '@renderer/components/Panel';
 import { toNullableId, toSelectValue, type ItemFormState } from '@renderer/lib/forms';
 
@@ -18,6 +19,8 @@ type ItemEditorProps = {
   onFormChange: (changes: Partial<ItemFormState>) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   selectedItemId: number | null;
+  selectedItemStatus: TemporalDetailStatus;
+  tick: number;
 };
 
 type AssignmentMode = 'unassigned' | 'character' | 'location';
@@ -50,6 +53,19 @@ function getAssignmentSummary(item: Item | null): string {
   return 'Unassigned';
 }
 
+function describeItemStatus(status: TemporalDetailStatus, tick: number): string {
+  switch (status) {
+    case 'notYetCreated':
+      return `This item does not exist yet at tick ${tick}.`;
+    case 'ended':
+      return `This item no longer exists at tick ${tick}.`;
+    case 'missing':
+      return 'Select an item to view and edit it.';
+    default:
+      return '';
+  }
+}
+
 export function ItemEditor({
   characters,
   form,
@@ -63,6 +79,8 @@ export function ItemEditor({
   onFormChange,
   onSubmit,
   selectedItemId,
+  selectedItemStatus,
+  tick,
 }: ItemEditorProps) {
   const assignmentMode = getAssignmentMode(form);
   const title = mode === 'create' ? 'Create Item' : 'Selected Item';
@@ -199,6 +217,19 @@ export function ItemEditor({
         </p>
       ) : null}
 
+      <label>
+        <span>Effective Tick</span>
+        <input
+          min={0}
+          name="effectiveTick"
+          onChange={(event) => {
+            onFormChange({ effectiveTick: Number(event.target.value) || 0 });
+          }}
+          type="number"
+          value={String(form.effectiveTick)}
+        />
+      </label>
+
       {mode === 'edit' ? (
         <div className="button-row">
           <button disabled={isSubmitting} type="submit">
@@ -212,7 +243,7 @@ export function ItemEditor({
             }}
             type="button"
           >
-            {isDeleting ? 'Deleting...' : 'Delete Item'}
+            {isDeleting ? 'Ending...' : 'End Item'}
           </button>
         </div>
       ) : (
@@ -233,8 +264,8 @@ export function ItemEditor({
       className="details-panel"
       title={title}
     >
-      {selectedItemId === null ? (
-        <p className="muted">Select an item to view and edit it.</p>
+      {selectedItemId === null || selectedItemStatus !== 'active' ? (
+        <p className="muted">{describeItemStatus(selectedItemStatus, tick)}</p>
       ) : null}
 
       {selectedItemId !== null && isLoading ? (

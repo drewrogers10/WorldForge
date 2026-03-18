@@ -4,24 +4,40 @@ import {
   type WorkspaceOption,
   type WorkspaceView,
 } from '@renderer/lib/forms';
+import type { TimelineAnchor, TimelineBounds } from '@shared/temporal';
 import { Sidebar } from './Sidebar';
+import { TemporalDock } from './TemporalDock';
 
 type AppShellProps = {
   activeView: WorkspaceView;
   children: ReactNode;
+  committedTick: number;
   errorMessage: string | null;
   isRefreshing: boolean;
+  onTimelineCommit: (tick: number) => void;
+  onTimelineJump: (tick: number) => void;
+  onTimelinePreview: (tick: number) => void;
   onRefresh: () => Promise<void>;
   onViewChange: (view: WorkspaceView) => void;
+  previewTick: number | null;
+  timelineAnchors: TimelineAnchor[];
+  timelineBounds: TimelineBounds | null;
 };
 
 export function AppShell({
   activeView,
   children,
+  committedTick,
   errorMessage,
   isRefreshing,
+  onTimelineCommit,
+  onTimelineJump,
+  onTimelinePreview,
   onRefresh,
   onViewChange,
+  previewTick,
+  timelineAnchors,
+  timelineBounds,
 }: AppShellProps) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const activeWorkspace: WorkspaceOption =
@@ -34,13 +50,14 @@ export function AppShell({
 
   return (
     <div className={isSidebarCollapsed ? 'app-shell sidebar-collapsed' : 'app-shell'}>
-      <Sidebar
-        activeView={activeView}
-        isCollapsed={isSidebarCollapsed}
-        isRefreshing={isRefreshing}
-        onRefresh={onRefresh}
-        onViewChange={onViewChange}
-      />
+      {isSidebarCollapsed ? null : (
+        <Sidebar
+          activeView={activeView}
+          isRefreshing={isRefreshing}
+          onRefresh={onRefresh}
+          onViewChange={onViewChange}
+        />
+      )}
 
       <div className="app-main">
         <div aria-label="Application functions" className="app-topbar" role="toolbar">
@@ -109,6 +126,16 @@ export function AppShell({
         </header>
 
         {errorMessage ? <div className="status error">{errorMessage}</div> : null}
+
+        <TemporalDock
+          committedTick={committedTick}
+          onTimelineCommit={onTimelineCommit}
+          onTimelineJump={onTimelineJump}
+          onTimelinePreview={onTimelinePreview}
+          previewTick={previewTick}
+          timelineAnchors={timelineAnchors}
+          timelineBounds={timelineBounds}
+        />
 
         <div className="app-body">{children}</div>
       </div>

@@ -5,11 +5,21 @@ import { Panel } from '@renderer/components/Panel';
 import type { WorkspaceView } from '@renderer/lib/forms';
 
 type WorldOverviewProps = {
+  changedCharacterIds: ReadonlySet<number>;
+  changedItemIds: ReadonlySet<number>;
+  changedLocationIds: ReadonlySet<number>;
   characters: Character[];
   isLoading: boolean;
   items: Item[];
   locations: Location[];
   onViewChange: (view: WorkspaceView) => void;
+  overviewDelta: {
+    gaps: number;
+    items: number;
+    people: number;
+    places: number;
+  };
+  tick: number;
 };
 
 type SpotlightLocation = {
@@ -22,6 +32,7 @@ type SpotlightLocation = {
 type RecentRecord = {
   createdAt: string;
   id: number;
+  isChanged: boolean;
   kind: 'Person' | 'Place' | 'Item';
   label: string;
   note: string;
@@ -32,12 +43,25 @@ const formatter = new Intl.DateTimeFormat(undefined, {
   day: 'numeric',
 });
 
+function formatDelta(delta: number): string | null {
+  if (delta === 0) {
+    return null;
+  }
+
+  return delta > 0 ? `+${delta}` : String(delta);
+}
+
 export function WorldOverview({
+  changedCharacterIds,
+  changedItemIds,
+  changedLocationIds,
   characters,
   isLoading,
   items,
   locations,
   onViewChange,
+  overviewDelta,
+  tick,
 }: WorldOverviewProps) {
   const locatedCharacters = characters.filter((character) => character.locationId !== null);
   const unplacedCharacters = characters.length - locatedCharacters.length;
@@ -74,6 +98,7 @@ export function WorldOverview({
     ...characters.map((character) => ({
       createdAt: character.createdAt,
       id: character.id,
+      isChanged: changedCharacterIds.has(character.id),
       kind: 'Person' as const,
       label: character.name,
       note: character.location?.name ?? 'No place assigned',
@@ -81,6 +106,7 @@ export function WorldOverview({
     ...locations.map((location) => ({
       createdAt: location.createdAt,
       id: location.id,
+      isChanged: changedLocationIds.has(location.id),
       kind: 'Place' as const,
       label: location.name,
       note: location.summary || 'No summary yet',
@@ -88,6 +114,7 @@ export function WorldOverview({
     ...items.map((item) => ({
       createdAt: item.createdAt,
       id: item.id,
+      isChanged: changedItemIds.has(item.id),
       kind: 'Item' as const,
       label: item.name,
       note:
@@ -137,28 +164,32 @@ export function WorldOverview({
             <p className="eyebrow">Setting Snapshot</p>
             <h3>See structure, gaps, and momentum before diving into records.</h3>
             <p className="muted">
-              This view turns the app into a working dashboard instead of dropping
-              straight into table maintenance.
+              This slice reflects world tick {tick} and highlights what changed since the
+              previous committed position.
             </p>
           </div>
 
           <div className="overview-metric-grid">
             <OverviewMetric
+              delta={formatDelta(overviewDelta.people)}
               label="People"
               tone="blue"
               value={characters.length}
             />
             <OverviewMetric
+              delta={formatDelta(overviewDelta.places)}
               label="Places"
               tone="gold"
               value={locations.length}
             />
             <OverviewMetric
+              delta={formatDelta(overviewDelta.items)}
               label="Items"
               tone="green"
               value={`${items.length} / ${totalItemUnits} units`}
             />
             <OverviewMetric
+              delta={formatDelta(overviewDelta.gaps)}
               label="Coverage Gaps"
               tone="rose"
               value={unplacedCharacters + unassignedItems.length}
@@ -228,9 +259,14 @@ export function WorldOverview({
                 <article className="linked-card overview-spotlight-card" key={location.id}>
                   <div className="entity-list-heading">
                     <p className="card-title">{location.name}</p>
-                    <span className="pill small subtle">
-                      {location.characterCount + location.itemCount} links
-                    </span>
+                    <div className="entity-list-pills">
+                      {changedLocationIds.has(location.id) ? (
+                        <span className="pill small highlight">Changed</span>
+                      ) : null}
+                      <span className="pill small subtle">
+                        {location.characterCount + location.itemCount} links
+                      </span>
+                    </div>
                   </div>
                   <p className="muted helper-text">
                     {location.characterCount} people and {location.itemCount} items are tied to
@@ -256,6 +292,9 @@ export function WorldOverview({
                     <p className="muted helper-text">{record.note}</p>
                   </div>
                   <div className="overview-recent-meta">
+                    {record.isChanged ? (
+                      <span className="pill small highlight">Changed</span>
+                    ) : null}
                     <span className="pill small subtle">{record.kind}</span>
                     <span className="muted">{formatCreatedAt(record.createdAt)}</span>
                   </div>
@@ -285,16 +324,18 @@ export function WorldOverview({
 }
 
 type OverviewMetricProps = {
+  delta: string | null;
   label: string;
   tone: 'blue' | 'gold' | 'green' | 'rose';
   value: number | string;
 };
 
-function OverviewMetric({ label, tone, value }: OverviewMetricProps) {
+function OverviewMetric({ delta, label, tone, value }: OverviewMetricProps) {
   return (
     <div className={`overview-metric-card ${tone}`}>
       <span className="overview-metric-label">{label}</span>
       <strong className="overview-metric-value">{value}</strong>
+      {delta ? <span className="overview-metric-delta">Since previous tick: {delta}</span> : null}
     </div>
   );
 }
@@ -324,11 +365,7 @@ function OverviewActionCard({
         <span className="pill small subtle">{stat}</span>
       </div>
       <p className="muted helper-text">{body}</p>
-      <button
-        className="secondary-button"
-        onClick={onClick}
-        type="button"
-      >
+      <button className="secondary-button" onClick={onClick} type="button">
         {cta}
       </button>
     </article>

@@ -72,23 +72,32 @@ export const workspaceGroups: Array<WorkspaceOption['group']> = [
   'Lore',
 ];
 
-export const emptyCharacterForm = (): CharacterFormState => ({
+export const emptyCharacterForm = (
+  effectiveTick = 0,
+): CharacterFormState => ({
   name: '',
   summary: '',
   locationId: null,
+  effectiveTick,
 });
 
-export const emptyLocationForm = (): LocationFormState => ({
+export const emptyLocationForm = (
+  effectiveTick = 0,
+): LocationFormState => ({
   name: '',
   summary: '',
+  effectiveTick,
 });
 
-export const emptyItemForm = (): ItemFormState => ({
+export const emptyItemForm = (
+  effectiveTick = 0,
+): ItemFormState => ({
   name: '',
   summary: '',
   quantity: 1,
   ownerCharacterId: null,
   locationId: null,
+  effectiveTick,
 });
 
 export function getErrorMessage(error: unknown): string {

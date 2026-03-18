@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import {
+  createTemporalDetailSchema,
+  effectiveTickSchema,
+  worldTickSchema,
+} from './temporal';
 
 const locationIdSchema = z.number().int().positive();
 const locationNameSchema = z.string().trim().min(1).max(120);
@@ -13,26 +18,36 @@ export const locationSchema = z.object({
   id: locationIdSchema,
   name: locationNameSchema,
   summary: locationSummarySchema,
+  existsFromTick: worldTickSchema,
+  existsToTick: worldTickSchema.nullable(),
   createdAt: z.string().min(1),
   updatedAt: z.string().min(1),
 });
 
 export const getLocationInputSchema = z.object({
   id: locationIdSchema,
+  asOfTick: worldTickSchema.optional(),
 });
 
 export const createLocationInputSchema = z.object({
   name: locationNameSchema,
   summary: locationSummarySchema,
+  effectiveTick: effectiveTickSchema,
 });
 
 export const updateLocationInputSchema = z.object({
   id: locationIdSchema,
   name: locationNameSchema,
   summary: locationSummarySchema,
+  effectiveTick: effectiveTickSchema,
 });
 
-export const deleteLocationInputSchema = getLocationInputSchema;
+export const deleteLocationInputSchema = z.object({
+  id: locationIdSchema,
+  effectiveTick: effectiveTickSchema,
+});
+
+export const locationDetailSchema = createTemporalDetailSchema(locationSchema);
 
 export type LocationReference = z.infer<typeof locationReferenceSchema>;
 export type Location = z.infer<typeof locationSchema>;
@@ -40,3 +55,4 @@ export type GetLocationInput = z.infer<typeof getLocationInputSchema>;
 export type CreateLocationInput = z.infer<typeof createLocationInputSchema>;
 export type UpdateLocationInput = z.infer<typeof updateLocationInputSchema>;
 export type DeleteLocationInput = z.infer<typeof deleteLocationInputSchema>;
+export type LocationDetail = z.infer<typeof locationDetailSchema>;

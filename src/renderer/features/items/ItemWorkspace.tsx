@@ -2,11 +2,13 @@ import type { FormEvent } from 'react';
 import type { Character } from '@shared/character';
 import type { Item } from '@shared/item';
 import type { Location } from '@shared/location';
+import type { TemporalDetailStatus } from '@shared/temporal';
 import type { ItemFormState } from '@renderer/lib/forms';
 import { ItemEditor } from './ItemEditor';
 import { ItemList } from './ItemList';
 
 type ItemWorkspaceProps = {
+  changedItemIds: ReadonlySet<number>;
   characters: Character[];
   createItemForm: ItemFormState;
   editItemForm: ItemFormState;
@@ -30,9 +32,12 @@ type ItemWorkspaceProps = {
   onUpdateItem: (event: FormEvent<HTMLFormElement>) => void | Promise<void>;
   selectedItem: Item | null;
   selectedItemId: number | null;
+  selectedItemStatus: TemporalDetailStatus;
+  tick: number;
 };
 
 export function ItemWorkspace({
+  changedItemIds,
   characters,
   createItemForm,
   editItemForm,
@@ -56,10 +61,13 @@ export function ItemWorkspace({
   onUpdateItem,
   selectedItem,
   selectedItemId,
+  selectedItemStatus,
+  tick,
 }: ItemWorkspaceProps) {
   return (
     <main className="content-grid">
       <ItemList
+        changedItemIds={changedItemIds}
         filteredItems={filteredItems}
         isLoading={isLoadingItems}
         itemAssignmentFilter={itemAssignmentFilter}
@@ -84,6 +92,8 @@ export function ItemWorkspace({
         onFormChange={onEditItemFormChange}
         onSubmit={onUpdateItem}
         selectedItemId={selectedItemId}
+        selectedItemStatus={selectedItemStatus}
+        tick={tick}
       />
 
       <ItemEditor
@@ -96,6 +106,8 @@ export function ItemWorkspace({
         onFormChange={onCreateItemFormChange}
         onSubmit={onCreateItem}
         selectedItemId={selectedItemId}
+        selectedItemStatus="active"
+        tick={tick}
       />
     </main>
   );

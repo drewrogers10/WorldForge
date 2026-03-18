@@ -6,7 +6,6 @@ import {
 
 type SidebarProps = {
   activeView: WorkspaceView;
-  isCollapsed: boolean;
   isRefreshing: boolean;
   onRefresh: () => Promise<void>;
   onViewChange: (view: WorkspaceView) => void;
@@ -14,18 +13,12 @@ type SidebarProps = {
 
 export function Sidebar({
   activeView,
-  isCollapsed,
   isRefreshing,
   onRefresh,
   onViewChange,
 }: SidebarProps) {
   return (
-    <aside
-      aria-hidden={isCollapsed}
-      className="shell-sidebar"
-      hidden={isCollapsed}
-      id="app-sidebar"
-    >
+    <aside className="shell-sidebar" id="app-sidebar">
       <div className="sidebar-brand">
         <p className="eyebrow">WorldForge</p>
         <h1>World Workshop</h1>

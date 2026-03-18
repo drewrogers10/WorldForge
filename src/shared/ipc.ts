@@ -1,5 +1,6 @@
 import { z, type ZodTypeAny } from 'zod';
 import {
+  characterDetailSchema,
   characterSchema,
   createCharacterInputSchema,
   deleteCharacterInputSchema,
@@ -10,6 +11,7 @@ import {
   createLocationInputSchema,
   deleteLocationInputSchema,
   getLocationInputSchema,
+  locationDetailSchema,
   locationSchema,
   updateLocationInputSchema,
 } from './location';
@@ -17,9 +19,15 @@ import {
   createItemInputSchema,
   deleteItemInputSchema,
   getItemInputSchema,
+  itemDetailSchema,
   itemSchema,
   updateItemInputSchema,
 } from './item';
+import {
+  asOfInputSchema,
+  timelineAnchorSchema,
+  timelineBoundsSchema,
+} from './temporal';
 
 type IpcContract<TInput extends ZodTypeAny, TOutput extends ZodTypeAny> = {
   channel: string;
@@ -38,13 +46,13 @@ function createContract<TInput extends ZodTypeAny, TOutput extends ZodTypeAny>(
 export const ipcContracts = {
   listCharacters: createContract(
     'characters:list',
-    z.void(),
+    asOfInputSchema,
     z.array(characterSchema),
   ),
   getCharacter: createContract(
     'characters:get',
     getCharacterInputSchema,
-    characterSchema.nullable(),
+    characterDetailSchema,
   ),
   createCharacter: createContract(
     'characters:create',
@@ -63,13 +71,13 @@ export const ipcContracts = {
   ),
   listLocations: createContract(
     'locations:list',
-    z.void(),
+    asOfInputSchema,
     z.array(locationSchema),
   ),
   getLocation: createContract(
     'locations:get',
     getLocationInputSchema,
-    locationSchema.nullable(),
+    locationDetailSchema,
   ),
   createLocation: createContract(
     'locations:create',
@@ -86,11 +94,21 @@ export const ipcContracts = {
     deleteLocationInputSchema,
     z.void(),
   ),
-  listItems: createContract('items:list', z.void(), z.array(itemSchema)),
-  getItem: createContract('items:get', getItemInputSchema, itemSchema.nullable()),
+  listItems: createContract('items:list', asOfInputSchema, z.array(itemSchema)),
+  getItem: createContract('items:get', getItemInputSchema, itemDetailSchema),
   createItem: createContract('items:create', createItemInputSchema, itemSchema),
   updateItem: createContract('items:update', updateItemInputSchema, itemSchema),
   deleteItem: createContract('items:delete', deleteItemInputSchema, z.void()),
+  getTimelineBounds: createContract(
+    'timeline:bounds',
+    z.void(),
+    timelineBoundsSchema,
+  ),
+  listTimelineAnchors: createContract(
+    'timeline:anchors',
+    z.void(),
+    z.array(timelineAnchorSchema),
+  ),
 } as const;
 
 export type IpcContractKey = keyof typeof ipcContracts;

@@ -430,6 +430,11 @@ textarea {
   line-height: 1.05;
 }
 
+.overview-metric-delta {
+  color: #bfd2f3;
+  font-size: 0.82rem;
+}
+
 .overview-main-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
@@ -560,6 +565,11 @@ textarea {
   background: rgba(255, 255, 255, 0.08);
 }
 
+.pill.highlight {
+  color: #fff0bf;
+  background: rgba(208, 166, 69, 0.22);
+}
+
 .status {
   margin-bottom: 1rem;
   border-radius: 0.9rem;
@@ -569,6 +579,129 @@ textarea {
 .status.error {
   color: #ffd7d7;
   background: rgba(159, 35, 35, 0.28);
+}
+
+.temporal-dock-shell {
+  position: sticky;
+  bottom: var(--shell-padding);
+  display: flex;
+  justify-content: flex-end;
+  z-index: 15;
+  pointer-events: none;
+}
+
+.temporal-dock {
+  width: min(100%, 24rem);
+  max-height: 6.75rem;
+  overflow: hidden;
+  display: grid;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(156, 182, 229, 0.2);
+  border-radius: 1.2rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 55%),
+    rgba(11, 16, 23, 0.9);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 18px 40px rgba(5, 8, 13, 0.28);
+  transition:
+    width 220ms ease,
+    max-height 220ms ease,
+    transform 220ms ease,
+    border-color 220ms ease,
+    background 220ms ease;
+  pointer-events: auto;
+}
+
+.temporal-dock:hover,
+.temporal-dock:focus,
+.temporal-dock:focus-within {
+  width: min(100%, 46rem);
+  max-height: 15rem;
+  transform: translateY(-0.2rem);
+  border-color: rgba(185, 208, 255, 0.38);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent 52%),
+    rgba(11, 16, 23, 0.94);
+}
+
+.temporal-dock:focus {
+  outline: none;
+}
+
+.temporal-dock-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.temporal-dock-copy {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.temporal-dock-copy p {
+  margin: 0;
+}
+
+.temporal-dock-title {
+  color: #dfe8f8;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.temporal-dock-hint {
+  max-width: 30ch;
+}
+
+.temporal-dock-pill {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.temporal-dock-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 16rem);
+  gap: 1rem;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(0.75rem);
+  transition:
+    opacity 160ms ease,
+    transform 220ms ease,
+    visibility 220ms ease;
+}
+
+.temporal-dock:hover .temporal-dock-body,
+.temporal-dock:focus .temporal-dock-body,
+.temporal-dock:focus-within .temporal-dock-body {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.temporal-dock-range,
+.temporal-dock-anchor {
+  display: grid;
+  gap: 0.55rem;
+  align-content: start;
+}
+
+.temporal-dock-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  color: #aab6ca;
+  font-size: 0.88rem;
+}
+
+.temporal-dock-slider {
+  padding: 0;
+  background: transparent;
+  accent-color: #b9d0ff;
 }
 
 .muted {
@@ -625,6 +758,13 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+}
+
+.entity-list-pills {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.35rem;
 }
 
 .entity-list-item span {
@@ -735,6 +875,32 @@ textarea {
     grid-template-columns: 1fr;
   }
 
+  .temporal-dock-shell {
+    position: static;
+    bottom: auto;
+    justify-content: stretch;
+    pointer-events: auto;
+  }
+
+  .temporal-dock,
+  .temporal-dock:hover,
+  .temporal-dock:focus,
+  .temporal-dock:focus-within {
+    width: 100%;
+    max-height: none;
+    transform: none;
+  }
+
+  .temporal-dock-body,
+  .temporal-dock:hover .temporal-dock-body,
+  .temporal-dock:focus .temporal-dock-body,
+  .temporal-dock:focus-within .temporal-dock-body {
+    grid-template-columns: 1fr;
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+  }
+
   .details-panel {
     min-height: 0;
   }
@@ -776,6 +942,12 @@ textarea {
 
   .overview-metric-grid {
     grid-template-columns: 1fr;
+  }
+
+  .temporal-dock-summary,
+  .temporal-dock-meta {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .readiness-row,

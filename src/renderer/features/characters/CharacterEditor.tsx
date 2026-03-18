@@ -1,6 +1,7 @@
 import type { FormEvent } from 'react';
 import type { Character } from '@shared/character';
 import type { Location } from '@shared/location';
+import type { TemporalDetailStatus } from '@shared/temporal';
 import { Panel } from '@renderer/components/Panel';
 import {
   toNullableId,
@@ -20,7 +21,22 @@ type CharacterEditorProps = {
   onFormChange: (changes: Partial<CharacterFormState>) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   selectedCharacterId: number | null;
+  selectedCharacterStatus: TemporalDetailStatus;
+  tick: number;
 };
+
+function describeCharacterStatus(status: TemporalDetailStatus, tick: number): string {
+  switch (status) {
+    case 'notYetCreated':
+      return `This person does not exist yet at tick ${tick}.`;
+    case 'ended':
+      return `This person no longer exists at tick ${tick}.`;
+    case 'missing':
+      return 'Select a person to view and edit them.';
+    default:
+      return '';
+  }
+}
 
 export function CharacterEditor({
   character,
@@ -34,7 +50,24 @@ export function CharacterEditor({
   onFormChange,
   onSubmit,
   selectedCharacterId,
+  selectedCharacterStatus,
+  tick,
 }: CharacterEditorProps) {
+  const effectiveTickField = (
+    <label>
+      <span>Effective Tick</span>
+      <input
+        min={0}
+        name="effectiveTick"
+        onChange={(event) => {
+          onFormChange({ effectiveTick: Number(event.target.value) || 0 });
+        }}
+        type="number"
+        value={String(form.effectiveTick)}
+      />
+    </label>
+  );
+
   if (mode === 'create') {
     return (
       <Panel title="Create Person">
@@ -83,6 +116,8 @@ export function CharacterEditor({
             </select>
           </label>
 
+          {effectiveTickField}
+
           <button disabled={isSubmitting} type="submit">
             {isSubmitting ? 'Creating...' : 'Create Person'}
           </button>
@@ -97,8 +132,8 @@ export function CharacterEditor({
       className="details-panel"
       title="Selected Person"
     >
-      {selectedCharacterId === null ? (
-        <p className="muted">Select a person to view and edit them.</p>
+      {selectedCharacterId === null || selectedCharacterStatus !== 'active' ? (
+        <p className="muted">{describeCharacterStatus(selectedCharacterStatus, tick)}</p>
       ) : null}
 
       {selectedCharacterId !== null && isLoading ? (
@@ -180,6 +215,8 @@ export function CharacterEditor({
               </p>
             ) : null}
 
+            {effectiveTickField}
+
             <div className="button-row">
               <button disabled={isSubmitting} type="submit">
                 {isSubmitting ? 'Saving...' : 'Save Changes'}
@@ -192,7 +229,7 @@ export function CharacterEditor({
                 }}
                 type="button"
               >
-                {isDeleting ? 'Deleting...' : 'Delete Person'}
+                {isDeleting ? 'Ending...' : 'End Person'}
               </button>
             </div>
           </form>

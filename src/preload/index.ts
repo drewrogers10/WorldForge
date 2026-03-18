@@ -18,21 +18,23 @@ async function invoke<K extends IpcContractKey>(
 }
 
 const api: WorldForgeApi = {
-  listCharacters: () => invoke('listCharacters', undefined),
+  listCharacters: (input = {}) => invoke('listCharacters', input),
   getCharacter: (input) => invoke('getCharacter', input),
   createCharacter: (input) => invoke('createCharacter', input),
   updateCharacter: (input) => invoke('updateCharacter', input),
   deleteCharacter: (input) => invoke('deleteCharacter', input),
-  listLocations: () => invoke('listLocations', undefined),
+  listLocations: (input = {}) => invoke('listLocations', input),
   getLocation: (input) => invoke('getLocation', input),
   createLocation: (input) => invoke('createLocation', input),
   updateLocation: (input) => invoke('updateLocation', input),
   deleteLocation: (input) => invoke('deleteLocation', input),
-  listItems: () => invoke('listItems', undefined),
+  listItems: (input = {}) => invoke('listItems', input),
   getItem: (input) => invoke('getItem', input),
   createItem: (input) => invoke('createItem', input),
   updateItem: (input) => invoke('updateItem', input),
   deleteItem: (input) => invoke('deleteItem', input),
+  getTimelineBounds: () => invoke('getTimelineBounds', undefined),
+  listTimelineAnchors: () => invoke('listTimelineAnchors', undefined),
 };
 
 contextBridge.exposeInMainWorld('worldForge', api);

@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import { characterReferenceSchema } from './character';
 import { locationReferenceSchema } from './location';
+import {
+  createTemporalDetailSchema,
+  effectiveTickSchema,
+  worldTickSchema,
+} from './temporal';
 
 const itemIdSchema = z.number().int().positive();
 const itemNameSchema = z.string().trim().min(1).max(120);
@@ -32,6 +37,8 @@ export const itemSchema = z
     ownerCharacter: characterReferenceSchema.nullable(),
     locationId: nullableLocationIdSchema,
     location: locationReferenceSchema.nullable(),
+    existsFromTick: worldTickSchema,
+    existsToTick: worldTickSchema.nullable(),
     createdAt: z.string().min(1),
     updatedAt: z.string().min(1),
   })
@@ -45,6 +52,7 @@ export const itemSchema = z
 
 export const getItemInputSchema = z.object({
   id: itemIdSchema,
+  asOfTick: worldTickSchema.optional(),
 });
 
 export const createItemInputSchema = z
@@ -54,6 +62,7 @@ export const createItemInputSchema = z
     quantity: itemQuantitySchema,
     ownerCharacterId: nullableOwnerCharacterIdSchema,
     locationId: nullableLocationIdSchema,
+    effectiveTick: effectiveTickSchema,
   })
   .and(itemAssignmentSchema);
 
@@ -65,13 +74,20 @@ export const updateItemInputSchema = z
     quantity: itemQuantitySchema,
     ownerCharacterId: nullableOwnerCharacterIdSchema,
     locationId: nullableLocationIdSchema,
+    effectiveTick: effectiveTickSchema,
   })
   .and(itemAssignmentSchema);
 
-export const deleteItemInputSchema = getItemInputSchema;
+export const deleteItemInputSchema = z.object({
+  id: itemIdSchema,
+  effectiveTick: effectiveTickSchema,
+});
+
+export const itemDetailSchema = createTemporalDetailSchema(itemSchema);
 
 export type Item = z.infer<typeof itemSchema>;
 export type GetItemInput = z.infer<typeof getItemInputSchema>;
 export type CreateItemInput = z.infer<typeof createItemInputSchema>;
 export type UpdateItemInput = z.infer<typeof updateItemInputSchema>;
 export type DeleteItemInput = z.infer<typeof deleteItemInputSchema>;
+export type ItemDetail = z.infer<typeof itemDetailSchema>;

@@ -1,8 +1,9 @@
-import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
-import type { Character } from '@shared/character';
-import type { Item } from '@shared/item';
-import type { Location } from '@shared/location';
+import type { Character, CharacterDetail } from '@shared/character';
+import type { Item, ItemDetail } from '@shared/item';
+import type { Location, LocationDetail } from '@shared/location';
+import type { TemporalDetailStatus } from '@shared/temporal';
 import { CharacterWorkspace } from '@renderer/features/characters/CharacterWorkspace';
 import { EntityWorkspacePlaceholder } from '@renderer/features/entities/EntityWorkspacePlaceholder';
 import { ItemWorkspace } from '@renderer/features/items/ItemWorkspace';
@@ -25,12 +26,135 @@ export type WorldWorkshopHandle = {
 
 type WorldWorkshopProps = {
   activeView: WorkspaceView;
+  committedTick: number;
   onErrorChange: (message: string | null) => void;
+  onTimelineMetadataRefresh: () => Promise<void>;
   onViewChange: (view: WorkspaceView) => void;
+  previewTick: number | null;
 };
 
+type OverviewDelta = {
+  gaps: number;
+  items: number;
+  people: number;
+  places: number;
+};
+
+const emptyOverviewDelta: OverviewDelta = {
+  gaps: 0,
+  items: 0,
+  people: 0,
+  places: 0,
+};
+
+function buildCharacterForm(record: Character, effectiveTick: number): CharacterFormState {
+  return {
+    name: record.name,
+    summary: record.summary,
+    locationId: record.locationId,
+    effectiveTick,
+  };
+}
+
+function buildLocationForm(record: Location, effectiveTick: number): LocationFormState {
+  return {
+    name: record.name,
+    summary: record.summary,
+    effectiveTick,
+  };
+}
+
+function buildItemForm(record: Item, effectiveTick: number): ItemFormState {
+  return {
+    name: record.name,
+    summary: record.summary,
+    quantity: record.quantity,
+    ownerCharacterId: record.ownerCharacterId,
+    locationId: record.locationId,
+    effectiveTick,
+  };
+}
+
+function compareCharacters(left: Character, right: Character): boolean {
+  return (
+    left.name === right.name &&
+    left.summary === right.summary &&
+    left.locationId === right.locationId &&
+    left.existsFromTick === right.existsFromTick &&
+    left.existsToTick === right.existsToTick
+  );
+}
+
+function compareLocations(left: Location, right: Location): boolean {
+  return (
+    left.name === right.name &&
+    left.summary === right.summary &&
+    left.existsFromTick === right.existsFromTick &&
+    left.existsToTick === right.existsToTick
+  );
+}
+
+function compareItems(left: Item, right: Item): boolean {
+  return (
+    left.name === right.name &&
+    left.summary === right.summary &&
+    left.quantity === right.quantity &&
+    left.ownerCharacterId === right.ownerCharacterId &&
+    left.locationId === right.locationId &&
+    left.existsFromTick === right.existsFromTick &&
+    left.existsToTick === right.existsToTick
+  );
+}
+
+function diffIds<TRecord extends { id: number }>(
+  previousRecords: TRecord[],
+  nextRecords: TRecord[],
+  isSameRecord: (left: TRecord, right: TRecord) => boolean,
+): Set<number> {
+  const previousById = new Map(previousRecords.map((record) => [record.id, record]));
+  const nextById = new Map(nextRecords.map((record) => [record.id, record]));
+  const changedIds = new Set<number>();
+
+  for (const [id, previousRecord] of previousById) {
+    const nextRecord = nextById.get(id);
+
+    if (!nextRecord || !isSameRecord(previousRecord, nextRecord)) {
+      changedIds.add(id);
+    }
+  }
+
+  for (const [id, nextRecord] of nextById) {
+    const previousRecord = previousById.get(id);
+
+    if (!previousRecord || !isSameRecord(previousRecord, nextRecord)) {
+      changedIds.add(id);
+    }
+  }
+
+  return changedIds;
+}
+
+function countCoverageGaps(characters: Character[], items: Item[]): number {
+  const unplacedCharacters = characters.filter((character) => character.locationId === null);
+  const unassignedItems = items.filter(
+    (item) => item.ownerCharacterId === null && item.locationId === null,
+  );
+
+  return unplacedCharacters.length + unassignedItems.length;
+}
+
 export const WorldWorkshop = forwardRef<WorldWorkshopHandle, WorldWorkshopProps>(
-  function WorldWorkshop({ activeView, onErrorChange, onViewChange }, ref) {
+  function WorldWorkshop(
+    {
+      activeView,
+      committedTick,
+      onErrorChange,
+      onTimelineMetadataRefresh,
+      onViewChange,
+      previewTick,
+    },
+    ref,
+  ) {
     const [characters, setCharacters] = useState<Character[]>([]);
     const [locations, setLocations] = useState<Location[]>([]);
     const [items, setItems] = useState<Item[]>([]);
@@ -40,20 +164,34 @@ export const WorldWorkshop = forwardRef<WorldWorkshopHandle, WorldWorkshopProps>
     const [itemAssignmentFilter, setItemAssignmentFilter] = useState('all');
     const [selectedCharacterId, setSelectedCharacterId] = useState<number | null>(null);
     const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
+    const [selectedCharacterStatus, setSelectedCharacterStatus] =
+      useState<TemporalDetailStatus>('missing');
     const [selectedLocationId, setSelectedLocationId] = useState<number | null>(null);
     const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
+    const [selectedLocationStatus, setSelectedLocationStatus] =
+      useState<TemporalDetailStatus>('missing');
     const [selectedItemId, setSelectedItemId] = useState<number | null>(null);
     const [selectedItem, setSelectedItem] = useState<Item | null>(null);
-    const [createCharacterForm, setCreateCharacterForm] =
-      useState<CharacterFormState>(emptyCharacterForm);
-    const [editCharacterForm, setEditCharacterForm] =
-      useState<CharacterFormState>(emptyCharacterForm);
-    const [createLocationForm, setCreateLocationForm] =
-      useState<LocationFormState>(emptyLocationForm);
-    const [editLocationForm, setEditLocationForm] =
-      useState<LocationFormState>(emptyLocationForm);
-    const [createItemForm, setCreateItemForm] = useState<ItemFormState>(emptyItemForm);
-    const [editItemForm, setEditItemForm] = useState<ItemFormState>(emptyItemForm);
+    const [selectedItemStatus, setSelectedItemStatus] =
+      useState<TemporalDetailStatus>('missing');
+    const [createCharacterForm, setCreateCharacterForm] = useState<CharacterFormState>(
+      emptyCharacterForm(committedTick),
+    );
+    const [editCharacterForm, setEditCharacterForm] = useState<CharacterFormState>(
+      emptyCharacterForm(committedTick),
+    );
+    const [createLocationForm, setCreateLocationForm] = useState<LocationFormState>(
+      emptyLocationForm(committedTick),
+    );
+    const [editLocationForm, setEditLocationForm] = useState<LocationFormState>(
+      emptyLocationForm(committedTick),
+    );
+    const [createItemForm, setCreateItemForm] = useState<ItemFormState>(
+      emptyItemForm(committedTick),
+    );
+    const [editItemForm, setEditItemForm] = useState<ItemFormState>(
+      emptyItemForm(committedTick),
+    );
     const [isLoadingCharacters, setIsLoadingCharacters] = useState(true);
     const [isLoadingCharacterDetails, setIsLoadingCharacterDetails] = useState(false);
     const [isCreatingCharacter, setIsCreatingCharacter] = useState(false);
@@ -69,40 +207,60 @@ export const WorldWorkshop = forwardRef<WorldWorkshopHandle, WorldWorkshopProps>
     const [isCreatingItem, setIsCreatingItem] = useState(false);
     const [isUpdatingItem, setIsUpdatingItem] = useState(false);
     const [isDeletingItem, setIsDeletingItem] = useState(false);
+    const [changedCharacterIds, setChangedCharacterIds] = useState<Set<number>>(new Set());
+    const [changedLocationIds, setChangedLocationIds] = useState<Set<number>>(new Set());
+    const [changedItemIds, setChangedItemIds] = useState<Set<number>>(new Set());
+    const [overviewDelta, setOverviewDelta] = useState<OverviewDelta>(emptyOverviewDelta);
+
+    const charactersRef = useRef<Character[]>([]);
+    const locationsRef = useRef<Location[]>([]);
+    const itemsRef = useRef<Item[]>([]);
+    const loadRequestIdRef = useRef(0);
 
     useEffect(() => {
-      void initializeData();
-    }, []);
+      setCreateCharacterForm((current) => ({ ...current, effectiveTick: committedTick }));
+      setEditCharacterForm((current) => ({ ...current, effectiveTick: committedTick }));
+      setCreateLocationForm((current) => ({ ...current, effectiveTick: committedTick }));
+      setEditLocationForm((current) => ({ ...current, effectiveTick: committedTick }));
+      setCreateItemForm((current) => ({ ...current, effectiveTick: committedTick }));
+      setEditItemForm((current) => ({ ...current, effectiveTick: committedTick }));
+    }, [committedTick]);
 
     useEffect(() => {
-      if (selectedCharacterId === null) {
-        syncSelectedCharacter(null);
+      if (previewTick === null) {
+        void loadSlice({
+          tick: committedTick,
+          mode: 'commit',
+        });
         return;
       }
 
-      void loadCharacter(selectedCharacterId);
-    }, [selectedCharacterId]);
+      const timeoutId = window.setTimeout(() => {
+        void loadSlice({
+          tick: previewTick,
+          mode: 'preview',
+        });
+      }, 70);
 
-    useEffect(() => {
-      if (selectedLocationId === null) {
-        syncSelectedLocation(null);
-        return;
-      }
-
-      void loadLocation(selectedLocationId);
-    }, [selectedLocationId]);
-
-    useEffect(() => {
-      if (selectedItemId === null) {
-        syncSelectedItem(null);
-        return;
-      }
-
-      void loadItem(selectedItemId);
-    }, [selectedItemId]);
+      return () => {
+        window.clearTimeout(timeoutId);
+      };
+    }, [
+      activeView,
+      committedTick,
+      previewTick,
+      selectedCharacterId,
+      selectedLocationId,
+      selectedItemId,
+    ]);
 
     useImperativeHandle(ref, () => ({
-      refreshAll,
+      refreshAll: () =>
+        loadSlice({
+          tick: committedTick,
+          mode: 'commit',
+          loadAllCoreLists: true,
+        }),
     }));
 
     function clearError(): void {
@@ -113,43 +271,27 @@ export const WorldWorkshop = forwardRef<WorldWorkshopHandle, WorldWorkshopProps>
       onErrorChange(getErrorMessage(error));
     }
 
-    function syncSelectedCharacter(record: Character | null): void {
-      setSelectedCharacter(record);
+    function applyCharacterDetail(detail: CharacterDetail, effectiveTick: number): void {
+      setSelectedCharacterStatus(detail.status);
+      setSelectedCharacter(detail.record);
       setEditCharacterForm(
-        record
-          ? {
-              name: record.name,
-              summary: record.summary,
-              locationId: record.locationId,
-            }
-          : emptyCharacterForm(),
+        detail.record ? buildCharacterForm(detail.record, effectiveTick) : emptyCharacterForm(effectiveTick),
       );
     }
 
-    function syncSelectedLocation(record: Location | null): void {
-      setSelectedLocation(record);
+    function applyLocationDetail(detail: LocationDetail, effectiveTick: number): void {
+      setSelectedLocationStatus(detail.status);
+      setSelectedLocation(detail.record);
       setEditLocationForm(
-        record
-          ? {
-              name: record.name,
-              summary: record.summary,
-            }
-          : emptyLocationForm(),
+        detail.record ? buildLocationForm(detail.record, effectiveTick) : emptyLocationForm(effectiveTick),
       );
     }
 
-    function syncSelectedItem(record: Item | null): void {
-      setSelectedItem(record);
+    function applyItemDetail(detail: ItemDetail, effectiveTick: number): void {
+      setSelectedItemStatus(detail.status);
+      setSelectedItem(detail.record);
       setEditItemForm(
-        record
-          ? {
-              name: record.name,
-              summary: record.summary,
-              quantity: record.quantity,
-              ownerCharacterId: record.ownerCharacterId,
-              locationId: record.locationId,
-            }
-          : emptyItemForm(),
+        detail.record ? buildItemForm(detail.record, effectiveTick) : emptyItemForm(effectiveTick),
       );
     }
 
@@ -195,159 +337,184 @@ export const WorldWorkshop = forwardRef<WorldWorkshopHandle, WorldWorkshopProps>
       }));
     }
 
-    async function initializeData(): Promise<void> {
-      await Promise.all([refreshLocations(), refreshCharacters(), refreshItems()]);
-    }
+    async function loadSlice(input: {
+      tick: number;
+      mode: 'preview' | 'commit';
+      loadAllCoreLists?: boolean;
+      preferredCharacterId?: number | null;
+      preferredItemId?: number | null;
+      preferredLocationId?: number | null;
+    }): Promise<void> {
+      const requestId = ++loadRequestIdRef.current;
+      const shouldLoadAllCoreLists = input.loadAllCoreLists ?? activeView === 'overview';
+      const needsCharacters =
+        shouldLoadAllCoreLists || activeView === 'people' || activeView === 'items' || activeView === 'places';
+      const needsLocations =
+        shouldLoadAllCoreLists || activeView === 'people' || activeView === 'items' || activeView === 'places';
+      const needsItems =
+        shouldLoadAllCoreLists || activeView === 'items' || activeView === 'places';
+      const nextCharacterId = input.preferredCharacterId ?? selectedCharacterId;
+      const nextLocationId = input.preferredLocationId ?? selectedLocationId;
+      const nextItemId = input.preferredItemId ?? selectedItemId;
 
-    async function refreshCharacters(preferredId?: number): Promise<Character[]> {
-      setIsLoadingCharacters(true);
+      if (needsCharacters) {
+        setIsLoadingCharacters(true);
+      }
+
+      if (needsLocations) {
+        setIsLoadingLocations(true);
+      }
+
+      if (needsItems) {
+        setIsLoadingItems(true);
+      }
+
+      if (activeView === 'people' && nextCharacterId !== null) {
+        setIsLoadingCharacterDetails(true);
+      }
+
+      if (activeView === 'places' && nextLocationId !== null) {
+        setIsLoadingLocationDetails(true);
+      }
+
+      if (activeView === 'items' && nextItemId !== null) {
+        setIsLoadingItemDetails(true);
+      }
+
       clearError();
 
       try {
-        const records = await window.worldForge.listCharacters();
-        setCharacters(records);
-        setSelectedCharacterId((currentId) => {
-          if (
-            preferredId !== undefined &&
-            records.some((record) => record.id === preferredId)
-          ) {
-            return preferredId;
+        const previousCharacters = charactersRef.current;
+        const previousLocations = locationsRef.current;
+        const previousItems = itemsRef.current;
+        const [
+          nextCharacters,
+          nextLocations,
+          nextItems,
+          nextCharacterDetail,
+          nextLocationDetail,
+          nextItemDetail,
+        ] = await Promise.all([
+          needsCharacters
+            ? window.worldForge.listCharacters({ asOfTick: input.tick })
+            : Promise.resolve(null),
+          needsLocations
+            ? window.worldForge.listLocations({ asOfTick: input.tick })
+            : Promise.resolve(null),
+          needsItems
+            ? window.worldForge.listItems({ asOfTick: input.tick })
+            : Promise.resolve(null),
+          activeView === 'people' && nextCharacterId !== null
+            ? window.worldForge.getCharacter({
+                id: nextCharacterId,
+                asOfTick: input.tick,
+              })
+            : Promise.resolve(null),
+          activeView === 'places' && nextLocationId !== null
+            ? window.worldForge.getLocation({
+                id: nextLocationId,
+                asOfTick: input.tick,
+              })
+            : Promise.resolve(null),
+          activeView === 'items' && nextItemId !== null
+            ? window.worldForge.getItem({
+                id: nextItemId,
+                asOfTick: input.tick,
+              })
+            : Promise.resolve(null),
+        ]);
+
+        if (requestId !== loadRequestIdRef.current) {
+          return;
+        }
+
+        if (nextCharacters) {
+          if (input.mode === 'commit') {
+            setChangedCharacterIds(
+              diffIds(previousCharacters, nextCharacters, compareCharacters),
+            );
           }
 
-          if (currentId !== null && records.some((record) => record.id === currentId)) {
-            return currentId;
+          charactersRef.current = nextCharacters;
+          setCharacters(nextCharacters);
+        }
+
+        if (nextLocations) {
+          if (input.mode === 'commit') {
+            setChangedLocationIds(
+              diffIds(previousLocations, nextLocations, compareLocations),
+            );
           }
 
-          return records[0]?.id ?? null;
-        });
+          locationsRef.current = nextLocations;
+          setLocations(nextLocations);
+        }
 
-        return records;
-      } catch (error) {
-        reportError(error);
-        return [];
-      } finally {
-        setIsLoadingCharacters(false);
-      }
-    }
-
-    async function refreshLocations(preferredId?: number): Promise<Location[]> {
-      setIsLoadingLocations(true);
-      clearError();
-
-      try {
-        const records = await window.worldForge.listLocations();
-        setLocations(records);
-        setSelectedLocationId((currentId) => {
-          if (
-            preferredId !== undefined &&
-            records.some((record) => record.id === preferredId)
-          ) {
-            return preferredId;
+        if (nextItems) {
+          if (input.mode === 'commit') {
+            setChangedItemIds(diffIds(previousItems, nextItems, compareItems));
           }
 
-          if (currentId !== null && records.some((record) => record.id === currentId)) {
-            return currentId;
+          itemsRef.current = nextItems;
+          setItems(nextItems);
+        }
+
+        if (input.mode === 'commit' && nextCharacters && nextLocations && nextItems) {
+          setOverviewDelta({
+            people: nextCharacters.length - previousCharacters.length,
+            places: nextLocations.length - previousLocations.length,
+            items: nextItems.length - previousItems.length,
+            gaps:
+              countCoverageGaps(nextCharacters, nextItems) -
+              countCoverageGaps(previousCharacters, previousItems),
+          });
+        }
+
+        if (nextCharacterDetail) {
+          applyCharacterDetail(nextCharacterDetail, committedTick);
+        } else if (activeView === 'people' && nextCharacterId === null) {
+          applyCharacterDetail({ status: 'missing', record: null }, committedTick);
+        }
+
+        if (nextLocationDetail) {
+          applyLocationDetail(nextLocationDetail, committedTick);
+        } else if (activeView === 'places' && nextLocationId === null) {
+          applyLocationDetail({ status: 'missing', record: null }, committedTick);
+        }
+
+        if (nextItemDetail) {
+          applyItemDetail(nextItemDetail, committedTick);
+        } else if (activeView === 'items' && nextItemId === null) {
+          applyItemDetail({ status: 'missing', record: null }, committedTick);
+        }
+
+        if (input.mode === 'commit') {
+          if (nextCharacters && nextCharacters.length > 0 && nextCharacterId === null) {
+            setSelectedCharacterId(nextCharacters[0]?.id ?? null);
           }
 
-          return records[0]?.id ?? null;
-        });
-
-        return records;
-      } catch (error) {
-        reportError(error);
-        return [];
-      } finally {
-        setIsLoadingLocations(false);
-      }
-    }
-
-    async function refreshItems(preferredId?: number): Promise<Item[]> {
-      setIsLoadingItems(true);
-      clearError();
-
-      try {
-        const records = await window.worldForge.listItems();
-        setItems(records);
-        setSelectedItemId((currentId) => {
-          if (
-            preferredId !== undefined &&
-            records.some((record) => record.id === preferredId)
-          ) {
-            return preferredId;
+          if (nextLocations && nextLocations.length > 0 && nextLocationId === null) {
+            setSelectedLocationId(nextLocations[0]?.id ?? null);
           }
 
-          if (currentId !== null && records.some((record) => record.id === currentId)) {
-            return currentId;
+          if (nextItems && nextItems.length > 0 && nextItemId === null) {
+            setSelectedItemId(nextItems[0]?.id ?? null);
           }
-
-          return records[0]?.id ?? null;
-        });
-
-        return records;
+        }
       } catch (error) {
-        reportError(error);
-        return [];
+        if (requestId === loadRequestIdRef.current) {
+          reportError(error);
+        }
       } finally {
-        setIsLoadingItems(false);
+        if (requestId === loadRequestIdRef.current) {
+          setIsLoadingCharacters(false);
+          setIsLoadingCharacterDetails(false);
+          setIsLoadingLocations(false);
+          setIsLoadingLocationDetails(false);
+          setIsLoadingItems(false);
+          setIsLoadingItemDetails(false);
+        }
       }
-    }
-
-    async function loadCharacter(id: number): Promise<void> {
-      setIsLoadingCharacterDetails(true);
-      clearError();
-
-      try {
-        const record = await window.worldForge.getCharacter({ id });
-        syncSelectedCharacter(record);
-      } catch (error) {
-        reportError(error);
-      } finally {
-        setIsLoadingCharacterDetails(false);
-      }
-    }
-
-    async function loadLocation(id: number): Promise<void> {
-      setIsLoadingLocationDetails(true);
-      clearError();
-
-      try {
-        const record = await window.worldForge.getLocation({ id });
-        syncSelectedLocation(record);
-      } catch (error) {
-        reportError(error);
-      } finally {
-        setIsLoadingLocationDetails(false);
-      }
-    }
-
-    async function loadItem(id: number): Promise<void> {
-      setIsLoadingItemDetails(true);
-      clearError();
-
-      try {
-        const record = await window.worldForge.getItem({ id });
-        syncSelectedItem(record);
-      } catch (error) {
-        reportError(error);
-      } finally {
-        setIsLoadingItemDetails(false);
-      }
-    }
-
-    async function refreshAll(): Promise<void> {
-      clearError();
-
-      await Promise.all([
-        refreshCharacters(selectedCharacterId ?? undefined),
-        refreshLocations(selectedLocationId ?? undefined),
-        refreshItems(selectedItemId ?? undefined),
-      ]);
-
-      await Promise.all([
-        selectedCharacterId !== null ? loadCharacter(selectedCharacterId) : Promise.resolve(),
-        selectedLocationId !== null ? loadLocation(selectedLocationId) : Promise.resolve(),
-        selectedItemId !== null ? loadItem(selectedItemId) : Promise.resolve(),
-      ]);
     }
 
     async function handleCreateCharacter(
@@ -359,10 +526,14 @@ export const WorldWorkshop = forwardRef<WorldWorkshopHandle, WorldWorkshopProps>
 
       try {
         const created = await window.worldForge.createCharacter(createCharacterForm);
-        setCreateCharacterForm(emptyCharacterForm());
-        syncSelectedCharacter(created);
         setSelectedCharacterId(created.id);
-        await refreshCharacters(created.id);
+        setCreateCharacterForm(emptyCharacterForm(committedTick));
+        await onTimelineMetadataRefresh();
+        await loadSlice({
+          tick: committedTick,
+          mode: 'commit',
+          preferredCharacterId: created.id,
+        });
       } catch (error) {
         reportError(error);
       } finally {
@@ -383,15 +554,16 @@ export const WorldWorkshop = forwardRef<WorldWorkshopHandle, WorldWorkshopProps>
       clearError();
 
       try {
-        const updated = await window.worldForge.updateCharacter({
+        await window.worldForge.updateCharacter({
           id: selectedCharacterId,
           ...editCharacterForm,
         });
-        syncSelectedCharacter(updated);
-        await Promise.all([
-          refreshCharacters(updated.id),
-          refreshItems(selectedItemId ?? undefined),
-        ]);
+        await onTimelineMetadataRefresh();
+        await loadSlice({
+          tick: committedTick,
+          mode: 'commit',
+          preferredCharacterId: selectedCharacterId,
+        });
       } catch (error) {
         reportError(error);
       } finally {
@@ -404,7 +576,7 @@ export const WorldWorkshop = forwardRef<WorldWorkshopHandle, WorldWorkshopProps>
         return;
       }
 
-      if (!window.confirm('Delete this person? This cannot be undone.')) {
+      if (!window.confirm('End this person at the selected effective tick?')) {
         return;
       }
 
@@ -412,10 +584,16 @@ export const WorldWorkshop = forwardRef<WorldWorkshopHandle, WorldWorkshopProps>
       clearError();
 
       try {
-        await window.worldForge.deleteCharacter({ id: selectedCharacterId });
-        syncSelectedCharacter(null);
-        setSelectedCharacterId(null);
-        await Promise.all([refreshCharacters(), refreshItems(selectedItemId ?? undefined)]);
+        await window.worldForge.deleteCharacter({
+          id: selectedCharacterId,
+          effectiveTick: committedTick,
+        });
+        await onTimelineMetadataRefresh();
+        await loadSlice({
+          tick: committedTick,
+          mode: 'commit',
+          preferredCharacterId: selectedCharacterId,
+        });
       } catch (error) {
         reportError(error);
       } finally {
@@ -430,10 +608,14 @@ export const WorldWorkshop = forwardRef<WorldWorkshopHandle, WorldWorkshopProps>
 
       try {
         const created = await window.worldForge.createLocation(createLocationForm);
-        setCreateLocationForm(emptyLocationForm());
-        syncSelectedLocation(created);
         setSelectedLocationId(created.id);
-        await refreshLocations(created.id);
+        setCreateLocationForm(emptyLocationForm(committedTick));
+        await onTimelineMetadataRefresh();
+        await loadSlice({
+          tick: committedTick,
+          mode: 'commit',
+          preferredLocationId: created.id,
+        });
       } catch (error) {
         reportError(error);
       } finally {
@@ -452,16 +634,16 @@ export const WorldWorkshop = forwardRef<WorldWorkshopHandle, WorldWorkshopProps>
       clearError();
 
       try {
-        const updated = await window.worldForge.updateLocation({
+        await window.worldForge.updateLocation({
           id: selectedLocationId,
           ...editLocationForm,
         });
-        syncSelectedLocation(updated);
-        await Promise.all([
-          refreshLocations(updated.id),
-          refreshCharacters(selectedCharacterId ?? undefined),
-          refreshItems(selectedItemId ?? undefined),
-        ]);
+        await onTimelineMetadataRefresh();
+        await loadSlice({
+          tick: committedTick,
+          mode: 'commit',
+          preferredLocationId: selectedLocationId,
+        });
       } catch (error) {
         reportError(error);
       } finally {
@@ -474,7 +656,7 @@ export const WorldWorkshop = forwardRef<WorldWorkshopHandle, WorldWorkshopProps>
         return;
       }
 
-      if (!window.confirm('Delete this place? Linked people and items will be unassigned.')) {
+      if (!window.confirm('End this place at the selected effective tick?')) {
         return;
       }
 
@@ -482,14 +664,16 @@ export const WorldWorkshop = forwardRef<WorldWorkshopHandle, WorldWorkshopProps>
       clearError();
 
       try {
-        await window.worldForge.deleteLocation({ id: selectedLocationId });
-        syncSelectedLocation(null);
-        setSelectedLocationId(null);
-        await Promise.all([
-          refreshLocations(),
-          refreshCharacters(selectedCharacterId ?? undefined),
-          refreshItems(selectedItemId ?? undefined),
-        ]);
+        await window.worldForge.deleteLocation({
+          id: selectedLocationId,
+          effectiveTick: committedTick,
+        });
+        await onTimelineMetadataRefresh();
+        await loadSlice({
+          tick: committedTick,
+          mode: 'commit',
+          preferredLocationId: selectedLocationId,
+        });
       } catch (error) {
         reportError(error);
       } finally {
@@ -504,10 +688,14 @@ export const WorldWorkshop = forwardRef<WorldWorkshopHandle, WorldWorkshopProps>
 
       try {
         const created = await window.worldForge.createItem(createItemForm);
-        setCreateItemForm(emptyItemForm());
-        syncSelectedItem(created);
         setSelectedItemId(created.id);
-        await refreshItems(created.id);
+        setCreateItemForm(emptyItemForm(committedTick));
+        await onTimelineMetadataRefresh();
+        await loadSlice({
+          tick: committedTick,
+          mode: 'commit',
+          preferredItemId: created.id,
+        });
       } catch (error) {
         reportError(error);
       } finally {
@@ -526,12 +714,16 @@ export const WorldWorkshop = forwardRef<WorldWorkshopHandle, WorldWorkshopProps>
       clearError();
 
       try {
-        const updated = await window.worldForge.updateItem({
+        await window.worldForge.updateItem({
           id: selectedItemId,
           ...editItemForm,
         });
-        syncSelectedItem(updated);
-        await refreshItems(updated.id);
+        await onTimelineMetadataRefresh();
+        await loadSlice({
+          tick: committedTick,
+          mode: 'commit',
+          preferredItemId: selectedItemId,
+        });
       } catch (error) {
         reportError(error);
       } finally {
@@ -544,7 +736,7 @@ export const WorldWorkshop = forwardRef<WorldWorkshopHandle, WorldWorkshopProps>
         return;
       }
 
-      if (!window.confirm('Delete this item? This cannot be undone.')) {
+      if (!window.confirm('End this item at the selected effective tick?')) {
         return;
       }
 
@@ -552,10 +744,16 @@ export const WorldWorkshop = forwardRef<WorldWorkshopHandle, WorldWorkshopProps>
       clearError();
 
       try {
-        await window.worldForge.deleteItem({ id: selectedItemId });
-        syncSelectedItem(null);
-        setSelectedItemId(null);
-        await refreshItems();
+        await window.worldForge.deleteItem({
+          id: selectedItemId,
+          effectiveTick: committedTick,
+        });
+        await onTimelineMetadataRefresh();
+        await loadSlice({
+          tick: committedTick,
+          mode: 'commit',
+          preferredItemId: selectedItemId,
+        });
       } catch (error) {
         reportError(error);
       } finally {
@@ -563,33 +761,28 @@ export const WorldWorkshop = forwardRef<WorldWorkshopHandle, WorldWorkshopProps>
       }
     }
 
-    const normalizedCharacterSearch = characterSearch.trim().toLowerCase();
     const filteredCharacters = characters.filter((character) => {
       const matchesSearch =
-        normalizedCharacterSearch.length === 0 ||
-        character.name.toLowerCase().includes(normalizedCharacterSearch) ||
-        character.summary.toLowerCase().includes(normalizedCharacterSearch) ||
-        character.location?.name.toLowerCase().includes(normalizedCharacterSearch);
-
-      const matchesLocation =
+        character.name.toLowerCase().includes(characterSearch.toLowerCase()) ||
+        character.summary.toLowerCase().includes(characterSearch.toLowerCase()) ||
+        character.location?.name.toLowerCase().includes(characterSearch.toLowerCase());
+      const matchesLocationFilter =
         characterLocationFilter === 'all'
           ? true
           : characterLocationFilter === 'unassigned'
             ? character.locationId === null
-            : character.locationId === Number(characterLocationFilter);
+            : String(character.locationId) === characterLocationFilter;
 
-      return matchesSearch && matchesLocation;
+      return matchesSearch && matchesLocationFilter;
     });
 
-    const normalizedItemSearch = itemSearch.trim().toLowerCase();
     const filteredItems = items.filter((item) => {
+      const assignmentSummary =
+        item.ownerCharacter?.name ?? item.location?.name ?? 'Unassigned';
       const matchesSearch =
-        normalizedItemSearch.length === 0 ||
-        item.name.toLowerCase().includes(normalizedItemSearch) ||
-        item.summary.toLowerCase().includes(normalizedItemSearch) ||
-        item.ownerCharacter?.name.toLowerCase().includes(normalizedItemSearch) ||
-        item.location?.name.toLowerCase().includes(normalizedItemSearch);
-
+        item.name.toLowerCase().includes(itemSearch.toLowerCase()) ||
+        item.summary.toLowerCase().includes(itemSearch.toLowerCase()) ||
+        assignmentSummary.toLowerCase().includes(itemSearch.toLowerCase());
       const matchesAssignment =
         itemAssignmentFilter === 'all'
           ? true
@@ -613,11 +806,16 @@ export const WorldWorkshop = forwardRef<WorldWorkshopHandle, WorldWorkshopProps>
       case 'overview':
         return (
           <WorldOverview
+            changedCharacterIds={changedCharacterIds}
+            changedItemIds={changedItemIds}
+            changedLocationIds={changedLocationIds}
             characters={characters}
             isLoading={isLoadingCharacters || isLoadingLocations || isLoadingItems}
             items={items}
             locations={locations}
             onViewChange={onViewChange}
+            overviewDelta={overviewDelta}
+            tick={previewTick ?? committedTick}
           />
         );
       case 'people':
@@ -625,6 +823,7 @@ export const WorldWorkshop = forwardRef<WorldWorkshopHandle, WorldWorkshopProps>
           <CharacterWorkspace
             characterLocationFilter={characterLocationFilter}
             characterSearch={characterSearch}
+            changedCharacterIds={changedCharacterIds}
             characters={characters}
             createCharacterForm={createCharacterForm}
             editCharacterForm={editCharacterForm}
@@ -645,11 +844,14 @@ export const WorldWorkshop = forwardRef<WorldWorkshopHandle, WorldWorkshopProps>
             onUpdateCharacter={handleUpdateCharacter}
             selectedCharacter={selectedCharacter}
             selectedCharacterId={selectedCharacterId}
+            selectedCharacterStatus={selectedCharacterStatus}
+            tick={previewTick ?? committedTick}
           />
         );
       case 'places':
         return (
           <LocationWorkspace
+            changedLocationIds={changedLocationIds}
             characters={characters}
             createLocationForm={createLocationForm}
             editLocationForm={editLocationForm}
@@ -669,6 +871,8 @@ export const WorldWorkshop = forwardRef<WorldWorkshopHandle, WorldWorkshopProps>
             selectedLocation={selectedLocation}
             selectedLocationCharacterCount={selectedLocationCharacterCount}
             selectedLocationId={selectedLocationId}
+            selectedLocationStatus={selectedLocationStatus}
+            tick={previewTick ?? committedTick}
           />
         );
       case 'powers':
@@ -704,6 +908,7 @@ export const WorldWorkshop = forwardRef<WorldWorkshopHandle, WorldWorkshopProps>
       case 'items':
         return (
           <ItemWorkspace
+            changedItemIds={changedItemIds}
             characters={characters}
             createItemForm={createItemForm}
             editItemForm={editItemForm}
@@ -727,6 +932,8 @@ export const WorldWorkshop = forwardRef<WorldWorkshopHandle, WorldWorkshopProps>
             onUpdateItem={handleUpdateItem}
             selectedItem={selectedItem}
             selectedItemId={selectedItemId}
+            selectedItemStatus={selectedItemStatus}
+            tick={previewTick ?? committedTick}
           />
         );
       case 'organizations':

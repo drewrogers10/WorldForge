@@ -1,6 +1,7 @@
 import type { FormEvent } from 'react';
 import type { Character } from '@shared/character';
 import type { Location } from '@shared/location';
+import type { TemporalDetailStatus } from '@shared/temporal';
 import type { CharacterFormState } from '@renderer/lib/forms';
 import { CharacterEditor } from './CharacterEditor';
 import { CharacterList } from './CharacterList';
@@ -8,6 +9,7 @@ import { CharacterList } from './CharacterList';
 type CharacterWorkspaceProps = {
   characterLocationFilter: string;
   characterSearch: string;
+  changedCharacterIds: ReadonlySet<number>;
   characters: Character[];
   createCharacterForm: CharacterFormState;
   editCharacterForm: CharacterFormState;
@@ -28,11 +30,14 @@ type CharacterWorkspaceProps = {
   onUpdateCharacter: (event: FormEvent<HTMLFormElement>) => void | Promise<void>;
   selectedCharacter: Character | null;
   selectedCharacterId: number | null;
+  selectedCharacterStatus: TemporalDetailStatus;
+  tick: number;
 };
 
 export function CharacterWorkspace({
   characterLocationFilter,
   characterSearch,
+  changedCharacterIds,
   characters,
   createCharacterForm,
   editCharacterForm,
@@ -53,12 +58,15 @@ export function CharacterWorkspace({
   onUpdateCharacter,
   selectedCharacter,
   selectedCharacterId,
+  selectedCharacterStatus,
+  tick,
 }: CharacterWorkspaceProps) {
   return (
     <main className="content-grid">
       <CharacterList
         characterLocationFilter={characterLocationFilter}
         characterSearch={characterSearch}
+        changedCharacterIds={changedCharacterIds}
         characters={characters}
         filteredCharacters={filteredCharacters}
         isLoading={isLoadingCharacters}
@@ -81,6 +89,8 @@ export function CharacterWorkspace({
         onFormChange={onEditCharacterFormChange}
         onSubmit={onUpdateCharacter}
         selectedCharacterId={selectedCharacterId}
+        selectedCharacterStatus={selectedCharacterStatus}
+        tick={tick}
       />
 
       <CharacterEditor
@@ -92,6 +102,8 @@ export function CharacterWorkspace({
         onFormChange={onCreateCharacterFormChange}
         onSubmit={onCreateCharacter}
         selectedCharacterId={selectedCharacterId}
+        selectedCharacterStatus="active"
+        tick={tick}
       />
     </main>
   );
