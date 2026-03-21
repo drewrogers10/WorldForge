@@ -1,7 +1,8 @@
 import type { FormEvent } from 'react';
 import type { Location } from '@shared/location';
-import type { TemporalDetailStatus } from '@shared/temporal';
+import { formatWorldTick, type TemporalDetailStatus } from '@shared/temporal';
 import { Panel } from '@renderer/components/Panel';
+import { TemporalInput } from '@renderer/components/TemporalInput';
 import type { LocationFormState } from '@renderer/lib/forms';
 
 type LocationEditorProps = {
@@ -24,9 +25,9 @@ type LocationEditorProps = {
 function describeLocationStatus(status: TemporalDetailStatus, tick: number): string {
   switch (status) {
     case 'notYetCreated':
-      return `This place does not exist yet at tick ${tick}.`;
+      return `This place does not exist yet at ${formatWorldTick(tick)}.`;
     case 'ended':
-      return `This place no longer exists at tick ${tick}.`;
+      return `This place no longer exists at ${formatWorldTick(tick)}.`;
     case 'missing':
       return 'Select a place to view and edit it.';
     default:
@@ -51,18 +52,12 @@ export function LocationEditor({
   tick,
 }: LocationEditorProps) {
   const effectiveTickField = (
-    <label>
-      <span>Effective Tick</span>
-      <input
-        min={0}
-        name="effectiveTick"
-        onChange={(event) => {
-          onFormChange({ effectiveTick: Number(event.target.value) || 0 });
-        }}
-        type="number"
-        value={String(form.effectiveTick)}
-      />
-    </label>
+    <TemporalInput
+      onChange={(effectiveTick) => {
+        onFormChange({ effectiveTick });
+      }}
+      value={form.effectiveTick}
+    />
   );
 
   if (mode === 'create') {

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import type { TimelineAnchor, TimelineBounds } from '@shared/temporal';
+import { formatWorldTick, type TimelineAnchor, type TimelineBounds } from '@shared/temporal';
 import styles from './TemporalDock.module.css';
 
 type TemporalDockProps = {
@@ -28,6 +28,13 @@ export function TemporalDock({
   const sliderTick = previewTick ?? committedTick;
   const sliderMin = timelineBounds?.minTick ?? 0;
   const sliderMax = timelineBounds?.maxTick ?? Math.max(committedTick, 0);
+  const sliderLabel = formatWorldTick(sliderTick);
+  const committedLabel = formatWorldTick(committedTick);
+  const previewLabel = previewTick === null ? null : formatWorldTick(previewTick);
+  const boundsLabel =
+    timelineBounds === null
+      ? 'Loading timeline'
+      : `${formatWorldTick(sliderMin, 'short')} to ${formatWorldTick(sliderMax, 'short')}`;
 
   const percentage = sliderMax === sliderMin ? 0 : ((sliderTick - sliderMin) / (sliderMax - sliderMin)) * 100;
 
@@ -68,23 +75,27 @@ export function TemporalDock({
         <div className={styles['temporal-dock-summary']}>
           <div className={styles['temporal-dock-copy']}>
             <p className="eyebrow">World State</p>
-            <p className={styles['temporal-dock-title']}>Viewing tick {sliderTick}</p>
+            <p className={styles['temporal-dock-title']}>Viewing {sliderLabel}</p>
             <p className={`muted helper-text ${styles['temporal-dock-hint']}`}>
-              Committed tick {committedTick}
-              {previewTick === null ? '' : `, previewing tick ${previewTick}`}
+              Committed {committedLabel}
+              {previewLabel === null ? '' : `, previewing ${previewLabel}`}
             </p>
           </div>
 
           <span className={`pill subtle ${styles['temporal-dock-pill']}`}>
-            {timelineBounds === null ? 'Loading timeline' : `${sliderMin} to ${sliderMax}`}
+            {boundsLabel}
           </span>
         </div>
 
         <div className={styles['temporal-dock-body']}>
           <div className={styles['temporal-dock-meta']}>
             <span>Scrub history</span>
-            <span>{sliderMin === sliderMax ? 'Single point' : `${sliderMin} to ${sliderMax}`}</span>
+            <span>{sliderMin === sliderMax ? 'Single point' : boundsLabel}</span>
           </div>
+
+          <p className={`muted helper-text ${styles['temporal-dock-hint']}`}>
+            Custom calendar: 12 months per year and 4 weeks per month.
+          </p>
 
           <label className={styles['temporal-dock-anchor']}>
             <span>Jump to anchor</span>

@@ -1,6 +1,7 @@
 import type { Character } from '@shared/character';
 import type { Item } from '@shared/item';
 import type { Location } from '@shared/location';
+import { formatWorldTick } from '@shared/temporal';
 import { Panel } from '@renderer/components/Panel';
 import type { WorkspaceView } from '@renderer/lib/forms';
 import { useThemeStore, getThemeDetails } from '@renderer/store/themeStore';
@@ -171,8 +172,8 @@ export function WorldOverview({
               <em>{themeDetails.heroLine2}</em>
             </h3>
             <p className="muted">
-              This slice reflects world tick {tick} and highlights what changed since the
-              previous committed position.
+              This overview reflects {formatWorldTick(tick)} and highlights what changed
+              since the previous committed position.
             </p>
           </div>
 
@@ -284,7 +285,7 @@ export function WorldOverview({
             </div>
           ) : (
             <p className="muted">
-              Add places first, then connect people and items to turn geography into structure.
+              Add places first, then connect people and items to turn the map into working world state.
             </p>
           )}
         </Panel>
@@ -309,14 +310,14 @@ export function WorldOverview({
               ))}
             </div>
           ) : (
-            <p className="muted">No records yet. Start with a place or a person to seed the world.</p>
+            <p className="muted">No records yet. Start with a person or place to seed the world.</p>
           )}
         </Panel>
 
         <Panel className="overview-roadmap-panel" title="World Areas">
           <div className="overview-roadmap-grid">
             <RoadmapCard
-              description="Character, location, and item records are live now."
+              description="People, places, and items are live now."
               title="Active Foundations"
             />
             <RoadmapCard
@@ -342,7 +343,7 @@ function OverviewMetric({ delta, label, tone, value }: OverviewMetricProps) {
     <div className={`overview-metric-card ${tone}`}>
       <span className="overview-metric-label">{label}</span>
       <strong className="overview-metric-value">{value}</strong>
-      {delta ? <span className="overview-metric-delta">Since previous tick: {delta}</span> : null}
+      {delta ? <span className="overview-metric-delta">Since previous position: {delta}</span> : null}
     </div>
   );
 }

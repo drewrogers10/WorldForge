@@ -91,7 +91,7 @@ export function LocationPage() {
 
   async function handleDeleteLocation() {
     if (selectedLocationId === null || isDeletingLocation) return;
-    if (!window.confirm('End this place at the selected effective tick?')) return;
+    if (!window.confirm('End this place at the selected effective time?')) return;
     setIsDeletingLocation(true);
     setErrorMessage(null);
     try {

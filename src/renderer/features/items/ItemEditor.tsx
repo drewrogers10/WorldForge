@@ -2,8 +2,9 @@ import type { FormEvent } from 'react';
 import type { Character } from '@shared/character';
 import type { Item } from '@shared/item';
 import type { Location } from '@shared/location';
-import type { TemporalDetailStatus } from '@shared/temporal';
+import { formatWorldTick, type TemporalDetailStatus } from '@shared/temporal';
 import { Panel } from '@renderer/components/Panel';
+import { TemporalInput } from '@renderer/components/TemporalInput';
 import { toNullableId, toSelectValue, type ItemFormState } from '@renderer/lib/forms';
 
 type ItemEditorProps = {
@@ -56,9 +57,9 @@ function getAssignmentSummary(item: Item | null): string {
 function describeItemStatus(status: TemporalDetailStatus, tick: number): string {
   switch (status) {
     case 'notYetCreated':
-      return `This item does not exist yet at tick ${tick}.`;
+      return `This item does not exist yet at ${formatWorldTick(tick)}.`;
     case 'ended':
-      return `This item no longer exists at tick ${tick}.`;
+      return `This item no longer exists at ${formatWorldTick(tick)}.`;
     case 'missing':
       return 'Select an item to view and edit it.';
     default:
@@ -217,18 +218,12 @@ export function ItemEditor({
         </p>
       ) : null}
 
-      <label>
-        <span>Effective Tick</span>
-        <input
-          min={0}
-          name="effectiveTick"
-          onChange={(event) => {
-            onFormChange({ effectiveTick: Number(event.target.value) || 0 });
-          }}
-          type="number"
-          value={String(form.effectiveTick)}
-        />
-      </label>
+      <TemporalInput
+        onChange={(effectiveTick) => {
+          onFormChange({ effectiveTick });
+        }}
+        value={form.effectiveTick}
+      />
 
       {mode === 'edit' ? (
         <div className="button-row">

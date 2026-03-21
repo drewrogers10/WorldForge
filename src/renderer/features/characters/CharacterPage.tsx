@@ -100,7 +100,7 @@ export function CharacterPage() {
 
   async function handleDeleteCharacter() {
     if (selectedCharacterId === null || isDeletingCharacter) return;
-    if (!window.confirm('End this person at the selected effective tick?')) return;
+    if (!window.confirm('End this person at the selected effective time?')) return;
     setIsDeletingCharacter(true);
     setErrorMessage(null);
     try {

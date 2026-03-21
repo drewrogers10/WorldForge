@@ -1,8 +1,9 @@
 import type { FormEvent } from 'react';
 import type { Character } from '@shared/character';
 import type { Location } from '@shared/location';
-import type { TemporalDetailStatus } from '@shared/temporal';
+import { formatWorldTick, type TemporalDetailStatus } from '@shared/temporal';
 import { Panel } from '@renderer/components/Panel';
+import { TemporalInput } from '@renderer/components/TemporalInput';
 import {
   toNullableId,
   toSelectValue,
@@ -28,9 +29,9 @@ type CharacterEditorProps = {
 function describeCharacterStatus(status: TemporalDetailStatus, tick: number): string {
   switch (status) {
     case 'notYetCreated':
-      return `This person does not exist yet at tick ${tick}.`;
+      return `This person does not exist yet at ${formatWorldTick(tick)}.`;
     case 'ended':
-      return `This person no longer exists at tick ${tick}.`;
+      return `This person no longer exists at ${formatWorldTick(tick)}.`;
     case 'missing':
       return 'Select a person to view and edit them.';
     default:
@@ -54,18 +55,12 @@ export function CharacterEditor({
   tick,
 }: CharacterEditorProps) {
   const effectiveTickField = (
-    <label>
-      <span>Effective Tick</span>
-      <input
-        min={0}
-        name="effectiveTick"
-        onChange={(event) => {
-          onFormChange({ effectiveTick: Number(event.target.value) || 0 });
-        }}
-        type="number"
-        value={String(form.effectiveTick)}
-      />
-    </label>
+    <TemporalInput
+      onChange={(effectiveTick) => {
+        onFormChange({ effectiveTick });
+      }}
+      value={form.effectiveTick}
+    />
   );
 
   if (mode === 'create') {

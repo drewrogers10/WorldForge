@@ -177,7 +177,8 @@ textarea {
 
 .content-grid {
   display: grid;
-  grid-template-columns: minmax(220px, 300px) minmax(320px, 1fr) minmax(280px, 360px);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr));
+  align-items: start;
   gap: 1rem;
 }
 
@@ -197,7 +198,7 @@ textarea {
 
 .overview-hero {
   display: grid;
-  grid-template-columns: minmax(280px, 1.3fr) minmax(320px, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
   gap: 1.25rem;
 }
 
@@ -282,7 +283,7 @@ textarea {
 
 .overview-main-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr));
   gap: 1rem;
 }
 
@@ -385,7 +386,7 @@ textarea {
 }
 
 .details-panel {
-  min-height: 32rem;
+  min-height: clamp(24rem, 48vh, 32rem);
 }
 
 .entity-placeholder-panel {
@@ -394,8 +395,8 @@ textarea {
 
 .pill {
   border-radius: 999px;
-  color: #b9cdef;
-  background: rgba(140, 176, 231, 0.14);
+  color: var(--color-accent);
+  background: var(--color-highlight-bg);
   padding: 0.2rem 0.65rem;
   font-size: 0.85rem;
 }
@@ -406,13 +407,13 @@ textarea {
 }
 
 .pill.subtle {
-  color: #aab6ca;
-  background: rgba(255, 255, 255, 0.08);
+  color: var(--color-muted);
+  background: rgba(128, 128, 128, 0.1);
 }
 
 .pill.highlight {
-  color: #fff0bf;
-  background: rgba(208, 166, 69, 0.22);
+  color: var(--color-highlight-text);
+  background: var(--color-highlight-bg);
 }
 
 .status {
@@ -422,12 +423,12 @@ textarea {
 }
 
 .status.error {
-  color: #ffd7d7;
-  background: rgba(159, 35, 35, 0.28);
+  color: #9f2323;
+  background: rgba(159, 35, 35, 0.12);
 }
 
 .muted {
-  color: #aab6ca;
+  color: var(--color-muted);
 }
 
 .entity-switcher {
@@ -437,13 +438,13 @@ textarea {
 }
 
 .workspace-button {
-  color: #d6e3ff;
-  background: rgba(214, 227, 255, 0.08);
+  color: var(--color-text);
+  background: rgba(128, 128, 128, 0.1);
 }
 
 .workspace-button.active {
-  color: #0d1117;
-  background: #d6e3ff;
+  color: var(--color-button-text);
+  background: var(--color-button-bg);
 }
 
 .list-controls {
@@ -469,8 +470,8 @@ textarea {
   align-items: flex-start;
   gap: 0.45rem;
   border: 1px solid transparent;
-  color: #f4f7fb;
-  background: rgba(255, 255, 255, 0.03);
+  color: var(--color-text);
+  background: rgba(128, 128, 128, 0.04);
   text-align: left;
 }
 
@@ -490,13 +491,13 @@ textarea {
 }
 
 .entity-list-item span {
-  color: #aab6ca;
+  color: var(--color-muted);
   font-size: 0.92rem;
 }
 
 .entity-list-item.active {
-  border-color: rgba(156, 182, 229, 0.55);
-  background: rgba(73, 102, 148, 0.35);
+  border-color: var(--color-accent);
+  background: var(--color-highlight-bg);
 }
 
 .detail-grid {
@@ -508,7 +509,7 @@ textarea {
 
 .detail-grid dt {
   margin-bottom: 0.2rem;
-  color: #9cb6e5;
+  color: var(--color-muted);
   font-size: 0.85rem;
 }
 
@@ -527,7 +528,7 @@ textarea {
 }
 
 .form span {
-  color: #cfd8e7;
+  color: var(--color-muted);
   font-size: 0.95rem;
 }
 
@@ -539,15 +540,15 @@ textarea {
 
 .linked-card {
   margin-bottom: 1.25rem;
-  border: 1px solid rgba(156, 182, 229, 0.18);
+  border: 1px solid var(--color-panel-border);
   border-radius: 1rem;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--color-panel-bg);
   padding: 0.95rem 1rem;
 }
 
 .card-title {
   margin: 0 0 0.35rem;
-  color: #dfe8f8;
+  color: var(--color-text);
   font-weight: 600;
 }
 
@@ -558,7 +559,7 @@ textarea {
 .placeholder-list {
   margin: 0;
   padding-left: 1.2rem;
-  color: #dfe8f8;
+  color: var(--color-text);
 }
 
 .placeholder-list li + li {
@@ -566,28 +567,24 @@ textarea {
 }
 
 .secondary-button {
-  color: #d6e3ff;
-  background: rgba(214, 227, 255, 0.08);
+  color: var(--color-text);
+  background: rgba(128, 128, 128, 0.1);
 }
 
 .secondary-button:hover {
-  background: rgba(214, 227, 255, 0.14);
+  background: rgba(128, 128, 128, 0.16);
 }
 
 .danger-button {
-  color: #ffe3e3;
-  background: rgba(177, 65, 65, 0.28);
+  color: #9f2323;
+  background: rgba(177, 65, 65, 0.12);
 }
 
 .danger-button:hover {
-  background: rgba(177, 65, 65, 0.38);
+  background: rgba(177, 65, 65, 0.2);
 }
 
 @media (max-width: 1080px) {
-  .content-grid {
-    grid-template-columns: 1fr;
-  }
-
   .details-panel {
     min-height: 0;
   }

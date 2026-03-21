@@ -22,7 +22,7 @@
 .temporal-dock.active {
   border-color: var(--color-accent);
   background: var(--color-panel-bg);
-  box-shadow: -12px 0 34px rgba(5, 8, 13, 0.32);
+  box-shadow: -12px 0 34px rgba(0, 0, 0, 0.12);
 }
 
 .temporal-dock-content {
@@ -133,8 +133,8 @@
   transform: translateX(-50%);
   background: repeating-linear-gradient(
     to bottom,
-    rgba(255, 255, 255, 0.25) 0px,
-    rgba(255, 255, 255, 0.25) 2px,
+    rgba(0, 0, 0, 0.2) 0px,
+    rgba(0, 0, 0, 0.2) 2px,
     transparent 2px,
     transparent 8px
   );
@@ -172,7 +172,9 @@
 
 @media (max-width: 1180px) {
   .temporal-dock {
-    border-bottom-left-radius: 1.25rem;
+    min-height: 0;
+    border-radius: 1.25rem;
+    box-shadow: -12px 0 34px rgba(0, 0, 0, 0.16);
   }
 
   .temporal-dock-body,
@@ -190,13 +192,9 @@
 
 @media (max-width: 720px) {
   .temporal-dock {
-    position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    width: min(var(--shell-right-width-expanded, 22rem), calc(100vw - 1rem));
+    position: relative;
+    width: 100%;
     min-height: 0;
-    border-top-left-radius: 1.25rem;
   }
 
   .temporal-dock-content {

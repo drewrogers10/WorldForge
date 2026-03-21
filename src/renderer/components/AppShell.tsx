@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { workspaceOptions, type WorkspaceOption, type WorkspaceView } from '@renderer/lib/forms';
+import { appCopy } from '@renderer/lib/copy';
 import { Sidebar } from './Sidebar';
 import { TemporalDock } from './TemporalDock';
 import { ThemeSwitcher } from './ThemeSwitcher';
@@ -14,8 +15,10 @@ export function AppShell() {
   const [isCompactShell, setIsCompactShell] = useState(false);
   const [isSidebarDrawerOpen, setIsSidebarDrawerOpen] = useState(false);
   const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
+  const [shellTopHeight, setShellTopHeight] = useState<string | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
+  const topbarRef = useRef<HTMLDivElement | null>(null);
 
   const activeView = (location.pathname.replace('/', '') || 'overview') as WorkspaceView;
 
@@ -56,6 +59,36 @@ export function AppShell() {
       setIsSidebarDrawerOpen(false);
     }
   }, [isCompactShell, location.pathname]);
+
+  useEffect(() => {
+    const topbarNode = topbarRef.current;
+
+    if (!topbarNode) {
+      return;
+    }
+
+    const updateShellTopHeight = () => {
+      setShellTopHeight(`${Math.ceil(topbarNode.getBoundingClientRect().height)}px`);
+    };
+
+    updateShellTopHeight();
+
+    if (typeof ResizeObserver === 'undefined') {
+      return;
+    }
+
+    const observer = new ResizeObserver(() => {
+      updateShellTopHeight();
+    });
+
+    observer.observe(topbarNode);
+    window.addEventListener('resize', updateShellTopHeight);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', updateShellTopHeight);
+    };
+  }, []);
 
   const handleTimelineJump = (tick: number) => {
     setCommittedTick(tick);
@@ -105,8 +138,12 @@ export function AppShell() {
     .filter(Boolean)
     .join(' ');
 
+  const shellStyle = shellTopHeight
+    ? ({ '--shell-top-height': shellTopHeight } as CSSProperties)
+    : undefined;
+
   return (
-    <div className={shellClassName}>
+    <div className={shellClassName} style={shellStyle}>
       {isCompactShell && isSidebarDrawerOpen && (
         <button
           aria-label="Close navigation"
@@ -127,11 +164,16 @@ export function AppShell() {
       </div>
 
       <div className={styles['topbar-slot']}>
-        <div aria-label="Application functions" className={styles['app-topbar']} role="toolbar">
+        <div
+          aria-label="Application functions"
+          className={styles['app-topbar']}
+          ref={topbarRef}
+          role="toolbar"
+        >
           <div className={styles['topbar-leading']}>
             <div className={styles['topbar-summary']}>
-              <p className="eyebrow">WorldForge</p>
-              <p className={styles['topbar-title']}>World Workshop shell</p>
+              <p className="eyebrow">{appCopy.brand}</p>
+              <p className={styles['topbar-title']}>{appCopy.shellName}</p>
             </div>
 
             <div className={styles['topbar-actions']}>

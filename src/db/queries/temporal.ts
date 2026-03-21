@@ -1,5 +1,10 @@
 import type { AppDatabase } from '../client';
-import type { TimelineAnchor, TimelineBounds, TemporalDetailStatus } from '@shared/temporal';
+import {
+  formatWorldTick,
+  type TimelineAnchor,
+  type TimelineBounds,
+  type TemporalDetailStatus,
+} from '@shared/temporal';
 
 type TemporalExistenceRecord = {
   existsFromTick: number;
@@ -101,7 +106,7 @@ export function listTimelineAnchors(db: AppDatabase): TimelineAnchor[] {
 
   return (statement.all() as AnchorRow[]).map((row) => ({
     tick: row.tick,
-    label: `Tick ${row.tick}`,
+    label: formatWorldTick(row.tick, 'short'),
     changeCount: row.changeCount,
   }));
 }

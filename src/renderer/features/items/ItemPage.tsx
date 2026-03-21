@@ -97,7 +97,7 @@ export function ItemPage() {
 
   async function handleDeleteItem() {
     if (selectedItemId === null || isDeletingItem) return;
-    if (!window.confirm('End this item at the selected effective tick?')) return;
+    if (!window.confirm('End this item at the selected effective time?')) return;
     setIsDeletingItem(true);
     setErrorMessage(null);
     try {

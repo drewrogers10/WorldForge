@@ -9,7 +9,7 @@
   border-bottom-right-radius: 1.45rem;
   background: var(--color-panel-bg);
   backdrop-filter: blur(18px);
-  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.02);
+  box-shadow: inset -1px 0 0 rgba(0, 0, 0, 0.04);
 }
 
 .shell-sidebar h1 {

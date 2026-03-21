@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createTestDatabaseContext } from '@db/test-utils';
+import { formatWorldTick } from '@shared/temporal';
 import { createCharacterService } from './character-service';
 import { createLocationService } from './location-service';
 import { createTimelineService } from './timeline-service';
@@ -57,10 +58,10 @@ describe('timeline service', () => {
 
     expect(timelineService.listTimelineAnchors()).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ tick: 10, label: 'Tick 10' }),
-        expect.objectContaining({ tick: 15, label: 'Tick 15' }),
-        expect.objectContaining({ tick: 25, label: 'Tick 25' }),
-        expect.objectContaining({ tick: 40, label: 'Tick 40' }),
+        expect.objectContaining({ tick: 10, label: formatWorldTick(10, 'short') }),
+        expect.objectContaining({ tick: 15, label: formatWorldTick(15, 'short') }),
+        expect.objectContaining({ tick: 25, label: formatWorldTick(25, 'short') }),
+        expect.objectContaining({ tick: 40, label: formatWorldTick(40, 'short') }),
       ]),
     );
   });
