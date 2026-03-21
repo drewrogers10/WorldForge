@@ -3,6 +3,7 @@ import type { Item } from '@shared/item';
 import type { Location } from '@shared/location';
 import { Panel } from '@renderer/components/Panel';
 import type { WorkspaceView } from '@renderer/lib/forms';
+import { useThemeStore, getThemeDetails } from '@renderer/store/themeStore';
 
 type WorldOverviewProps = {
   changedCharacterIds: ReadonlySet<number>;
@@ -63,6 +64,9 @@ export function WorldOverview({
   overviewDelta,
   tick,
 }: WorldOverviewProps) {
+  const { theme } = useThemeStore();
+  const themeDetails = getThemeDetails(theme);
+
   const locatedCharacters = characters.filter((character) => character.locationId !== null);
   const unplacedCharacters = characters.length - locatedCharacters.length;
   const ownedItems = items.filter((item) => item.ownerCharacterId !== null);
@@ -162,7 +166,10 @@ export function WorldOverview({
         <div className="overview-hero">
           <div className="overview-hero-copy">
             <p className="eyebrow">Setting Snapshot</p>
-            <h3>See structure, gaps, and momentum before diving into records.</h3>
+            <h3>
+              {themeDetails.heroLine1}{' '}
+              <em>{themeDetails.heroLine2}</em>
+            </h3>
             <p className="muted">
               This slice reflects world tick {tick} and highlights what changed since the
               previous committed position.

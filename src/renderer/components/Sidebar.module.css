@@ -1,0 +1,135 @@
+.shell-sidebar {
+  height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 1.2rem;
+  padding: 1.15rem 1rem 1.2rem 1.25rem;
+  border-right: 1px solid var(--color-panel-border);
+  border-bottom: 1px solid var(--color-panel-border);
+  border-bottom-right-radius: 1.45rem;
+  background: var(--color-panel-bg);
+  backdrop-filter: blur(18px);
+  box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.02);
+}
+
+.shell-sidebar h1 {
+  margin: 0;
+}
+
+.sidebar-brand {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.sidebar-brand p:last-child {
+  margin: 0;
+}
+
+.sidebar-nav {
+  min-height: 0;
+  display: grid;
+  align-content: start;
+  gap: 1rem;
+  overflow-y: auto;
+  padding-right: 0.35rem;
+}
+
+.sidebar-section {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.sidebar-section-label {
+  margin: 0;
+  color: var(--color-accent);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.sidebar-link-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.sidebar-link {
+  display: block;
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 1rem;
+  color: var(--color-text);
+  background: transparent;
+  padding: 0.9rem 0.95rem;
+  text-align: left;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    transform 120ms ease;
+}
+
+.sidebar-link:hover {
+  border-color: var(--color-panel-border);
+  background: rgba(128, 128, 128, 0.1);
+}
+
+.sidebar-link:active {
+  transform: translateX(1px);
+}
+
+.sidebar-link.active {
+  border-color: var(--color-accent);
+  color: var(--color-bg);
+  background: var(--color-accent);
+}
+
+.sidebar-link-copy {
+  display: grid;
+  gap: 0.22rem;
+}
+
+.sidebar-link-copy strong {
+  font-size: 0.98rem;
+}
+
+.sidebar-link-copy span {
+  color: var(--color-muted);
+  font-size: 0.88rem;
+  line-height: 1.38;
+}
+
+.sidebar-link.active .sidebar-link-copy span {
+  color: var(--color-bg);
+}
+
+.sidebar-footer {
+  display: grid;
+  gap: 0.45rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-panel-border);
+}
+
+.sidebar-footer-title {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.sidebar-footer-copy {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 1180px) {
+  .shell-sidebar {
+    border-right: 1px solid var(--color-panel-border);
+    border-bottom-right-radius: 1.25rem;
+    box-shadow: 18px 0 36px rgba(4, 8, 12, 0.36);
+  }
+}
+
+@media (max-width: 720px) {
+  .shell-sidebar {
+    padding: 1rem 0.9rem 1rem 1rem;
+  }
+}

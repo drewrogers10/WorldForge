@@ -1,45 +1,76 @@
-import { useState, type ReactNode } from 'react';
-import {
-  workspaceOptions,
-  type WorkspaceOption,
-  type WorkspaceView,
-} from '@renderer/lib/forms';
-import type { TimelineAnchor, TimelineBounds } from '@shared/temporal';
+import { useEffect, useState } from 'react';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { workspaceOptions, type WorkspaceOption, type WorkspaceView } from '@renderer/lib/forms';
 import { Sidebar } from './Sidebar';
 import { TemporalDock } from './TemporalDock';
+import { ThemeSwitcher } from './ThemeSwitcher';
+import { useTemporalStore } from '@renderer/store/temporalStore';
+import { useUiStore } from '@renderer/store/uiStore';
+import { AnimatePresence, motion } from 'framer-motion';
+import styles from './AppShell.module.css';
 
-type AppShellProps = {
-  activeView: WorkspaceView;
-  children: ReactNode;
-  committedTick: number;
-  errorMessage: string | null;
-  isRefreshing: boolean;
-  onTimelineCommit: (tick: number) => void;
-  onTimelineJump: (tick: number) => void;
-  onTimelinePreview: (tick: number) => void;
-  onRefresh: () => Promise<void>;
-  onViewChange: (view: WorkspaceView) => void;
-  previewTick: number | null;
-  timelineAnchors: TimelineAnchor[];
-  timelineBounds: TimelineBounds | null;
-};
-
-export function AppShell({
-  activeView,
-  children,
-  committedTick,
-  errorMessage,
-  isRefreshing,
-  onTimelineCommit,
-  onTimelineJump,
-  onTimelinePreview,
-  onRefresh,
-  onViewChange,
-  previewTick,
-  timelineAnchors,
-  timelineBounds,
-}: AppShellProps) {
+export function AppShell() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isCompactShell, setIsCompactShell] = useState(false);
+  const [isSidebarDrawerOpen, setIsSidebarDrawerOpen] = useState(false);
+  const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const activeView = (location.pathname.replace('/', '') || 'overview') as WorkspaceView;
+
+  const {
+    committedTick,
+    previewTick,
+    timelineAnchors,
+    timelineBounds,
+    setCommittedTick,
+    setPreviewTick,
+    refreshTimeline,
+  } = useTemporalStore();
+
+  const { errorMessage, isRefreshing, setIsRefreshing } = useUiStore();
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 1180px)');
+
+    const syncShellMode = () => {
+      const nextIsCompactShell = mediaQuery.matches;
+      setIsCompactShell(nextIsCompactShell);
+
+      if (!nextIsCompactShell) {
+        setIsSidebarDrawerOpen(false);
+      }
+    };
+
+    syncShellMode();
+    mediaQuery.addEventListener('change', syncShellMode);
+
+    return () => {
+      mediaQuery.removeEventListener('change', syncShellMode);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isCompactShell) {
+      setIsSidebarDrawerOpen(false);
+    }
+  }, [isCompactShell, location.pathname]);
+
+  const handleTimelineJump = (tick: number) => {
+    setCommittedTick(tick);
+  };
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshTimeline();
+      window.dispatchEvent(new Event('app:refreshList'));
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const activeWorkspace: WorkspaceOption =
     workspaceOptions.find((workspace) => workspace.id === activeView) ?? {
       id: 'overview',
@@ -48,44 +79,74 @@ export function AppShell({
       group: 'Workspace',
     };
 
+  const handleSidebarToggle = () => {
+    if (isCompactShell) {
+      setIsSidebarDrawerOpen((previousValue) => !previousValue);
+      return;
+    }
+
+    setIsSidebarCollapsed((previousValue) => !previousValue);
+  };
+
+  const sidebarToggleLabel = isCompactShell
+    ? isSidebarDrawerOpen
+      ? 'Close navigation'
+      : 'Open navigation'
+    : isSidebarCollapsed
+      ? 'Show sidebar'
+      : 'Collapse sidebar';
+
+  const shellClassName = [
+    styles['app-shell'],
+    !isCompactShell && isSidebarCollapsed ? styles['sidebar-collapsed'] : '',
+    isCompactShell && isSidebarDrawerOpen ? styles['sidebar-drawer-open'] : '',
+    isTimelineExpanded ? styles['timeline-expanded'] : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
   return (
-    <div className={isSidebarCollapsed ? 'app-shell sidebar-collapsed' : 'app-shell'}>
-      {isSidebarCollapsed ? null : (
-        <Sidebar
-          activeView={activeView}
-          isRefreshing={isRefreshing}
-          onRefresh={onRefresh}
-          onViewChange={onViewChange}
+    <div className={shellClassName}>
+      {isCompactShell && isSidebarDrawerOpen && (
+        <button
+          aria-label="Close navigation"
+          className={styles['shell-scrim']}
+          onClick={() => setIsSidebarDrawerOpen(false)}
+          type="button"
         />
       )}
 
-      <div className="app-main">
-        <div aria-label="Application functions" className="app-topbar" role="toolbar">
-          <div className="topbar-leading">
-            <div className="topbar-summary">
-              <p className="eyebrow">Function bar</p>
-              <p className="topbar-title">General navigation and shell controls</p>
+      <div className={styles['sidebar-slot']}>
+        <Sidebar
+          activeView={activeView}
+          onViewChange={(view) => {
+            navigate(`/${view}`);
+            setIsSidebarDrawerOpen(false);
+          }}
+        />
+      </div>
+
+      <div className={styles['topbar-slot']}>
+        <div aria-label="Application functions" className={styles['app-topbar']} role="toolbar">
+          <div className={styles['topbar-leading']}>
+            <div className={styles['topbar-summary']}>
+              <p className="eyebrow">WorldForge</p>
+              <p className={styles['topbar-title']}>World Workshop shell</p>
             </div>
 
-            <div className="topbar-actions">
+            <div className={styles['topbar-actions']}>
+              <ThemeSwitcher />
               <button
-                aria-controls="app-sidebar"
-                aria-expanded={!isSidebarCollapsed}
                 className="secondary-button"
-                onClick={() => {
-                  setIsSidebarCollapsed((current) => !current);
-                }}
+                onClick={handleSidebarToggle}
                 type="button"
               >
-                {isSidebarCollapsed ? 'Show sidebar' : 'Collapse sidebar'}
+                {sidebarToggleLabel}
               </button>
-
               <button
                 className="secondary-button"
                 disabled={isRefreshing}
-                onClick={() => {
-                  void onRefresh();
-                }}
+                onClick={() => { void handleRefresh(); }}
                 type="button"
               >
                 {isRefreshing ? 'Refreshing...' : 'Refresh data'}
@@ -93,52 +154,62 @@ export function AppShell({
             </div>
           </div>
 
-          <nav aria-label="General workspace navigation" className="function-bar-nav">
+          <nav aria-label="General workspace navigation" className={styles['function-bar-nav']}>
             {workspaceOptions.map((workspace) => (
               <button
                 key={workspace.id}
                 aria-pressed={activeView === workspace.id}
-                className={
-                  activeView === workspace.id
-                    ? 'function-bar-link active'
-                    : 'function-bar-link'
-                }
-                onClick={() => {
-                  onViewChange(workspace.id);
-                }}
+                className={activeView === workspace.id ? `${styles['function-bar-link']} ${styles['active']}` : styles['function-bar-link']}
+                onClick={() => navigate(`/${workspace.id}`)}
                 type="button"
               >
-                <span className="function-bar-link-label">{workspace.label}</span>
-                <span className="function-bar-link-group">{workspace.group}</span>
+                <span className={styles['function-bar-link-label']}>{workspace.label}</span>
+                <span className={styles['function-bar-link-group']}>{workspace.group}</span>
               </button>
             ))}
           </nav>
         </div>
+      </div>
 
-        <header className="app-header">
-          <div className="header-copy">
-            <p className="eyebrow">{activeWorkspace.group}</p>
-            <h2>{activeWorkspace.label}</h2>
-            <p className="muted shell-intro">{activeWorkspace.description}</p>
-          </div>
-
-          <span className="pill subtle">{activeWorkspace.group}</span>
-        </header>
-
-        {errorMessage ? <div className="status error">{errorMessage}</div> : null}
-
+      <div className={styles['timeline-slot']}>
         <TemporalDock
           committedTick={committedTick}
-          onTimelineCommit={onTimelineCommit}
-          onTimelineJump={onTimelineJump}
-          onTimelinePreview={onTimelinePreview}
+          onExpandedChange={setIsTimelineExpanded}
+          onTimelineCommit={setCommittedTick}
+          onTimelineJump={handleTimelineJump}
+          onTimelinePreview={setPreviewTick}
           previewTick={previewTick}
           timelineAnchors={timelineAnchors}
           timelineBounds={timelineBounds}
         />
-
-        <div className="app-body">{children}</div>
       </div>
+
+      <main className={styles['app-main']}>
+        <header className={styles['app-header']}>
+          <div className={styles['header-copy']}>
+            <p className="eyebrow">{activeWorkspace.group}</p>
+            <h2>{activeWorkspace.label}</h2>
+            <p className={`muted ${styles['shell-intro']}`}>{activeWorkspace.description}</p>
+          </div>
+          <span className="pill subtle">{activeWorkspace.group}</span>
+        </header>
+
+        {errorMessage && <div className="status error">{errorMessage}</div>}
+
+        <div className={styles['app-body']}>
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={location.pathname}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.99, y: -5 }}
+              initial={{ opacity: 0, scale: 0.99, y: 5 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
+            >
+              <Outlet />
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </main>
     </div>
   );
 }

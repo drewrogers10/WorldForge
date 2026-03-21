@@ -1,0 +1,205 @@
+.temporal-dock {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
+  margin-left: auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--shell-right-width-collapsed, 4.75rem);
+  border-left: 1px solid var(--color-panel-border);
+  border-bottom-left-radius: 1.45rem;
+  background: var(--color-panel-bg);
+  backdrop-filter: blur(18px);
+  overflow: hidden;
+  pointer-events: auto;
+  outline: none;
+  transition:
+    background 220ms ease,
+    box-shadow 220ms ease,
+    border-color 220ms ease;
+}
+
+.temporal-dock.active {
+  border-color: var(--color-accent);
+  background: var(--color-panel-bg);
+  box-shadow: -12px 0 34px rgba(5, 8, 13, 0.32);
+}
+
+.temporal-dock-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+  padding: 1.2rem 0 1.4rem 1.3rem;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(1rem);
+  transition:
+    opacity 200ms ease,
+    visibility 200ms ease,
+    transform 200ms ease;
+}
+
+.temporal-dock.active .temporal-dock-content {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(0);
+}
+
+.temporal-dock-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.temporal-dock-copy {
+  display: grid;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.temporal-dock-copy p {
+  margin: 0;
+}
+
+.temporal-dock-title {
+  color: var(--color-text);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.temporal-dock-hint {
+  max-width: 26ch;
+}
+
+.temporal-dock-pill {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.temporal-dock-body {
+  display: grid;
+  gap: 1rem;
+}
+
+.temporal-dock-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  color: var(--color-muted);
+  font-size: 0.88rem;
+}
+
+.temporal-dock-anchor {
+  display: grid;
+  gap: 0.55rem;
+  align-content: start;
+}
+
+.temporal-rail {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 1rem;
+  padding: 1rem 0.75rem;
+  border-left: 1px solid var(--color-panel-border);
+  background: transparent;
+}
+
+.temporal-rail-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--color-accent);
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+
+.temporal-dock-track {
+  position: relative;
+  width: 1.5rem;
+  height: clamp(220px, 56vh, 560px);
+}
+
+.temporal-ticks {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 8px;
+  transform: translateX(-50%);
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.25) 0px,
+    rgba(255, 255, 255, 0.25) 2px,
+    transparent 2px,
+    transparent 8px
+  );
+  border-radius: 999px;
+}
+
+.temporal-thumb {
+  position: absolute;
+  left: 50%;
+  width: 4px;
+  height: 24px;
+  background: var(--color-accent);
+  border-radius: 2px;
+  transform: translate(-50%, -50%);
+  transition: top 100ms linear;
+  pointer-events: none;
+  box-shadow: 0 0 12px var(--color-highlight-bg);
+}
+
+.invisible-slider {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: clamp(220px, 56vh, 560px);
+  height: 24px;
+  transform: translate(-50%, -50%) rotate(90deg);
+  opacity: 0;
+  cursor: grab;
+  margin: 0;
+}
+
+.invisible-slider:active {
+  cursor: grabbing;
+}
+
+@media (max-width: 1180px) {
+  .temporal-dock {
+    border-bottom-left-radius: 1.25rem;
+  }
+
+  .temporal-dock-body,
+  .temporal-dock-meta,
+  .temporal-dock-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .temporal-dock-summary,
+  .temporal-dock-meta {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 720px) {
+  .temporal-dock {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(var(--shell-right-width-expanded, 22rem), calc(100vw - 1rem));
+    min-height: 0;
+    border-top-left-radius: 1.25rem;
+  }
+
+  .temporal-dock-content {
+    padding-left: 1rem;
+  }
+}

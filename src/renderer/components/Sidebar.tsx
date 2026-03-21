@@ -3,23 +3,20 @@ import {
   workspaceOptions,
   type WorkspaceView,
 } from '@renderer/lib/forms';
+import styles from './Sidebar.module.css';
 
 type SidebarProps = {
   activeView: WorkspaceView;
-  isRefreshing: boolean;
-  onRefresh: () => Promise<void>;
   onViewChange: (view: WorkspaceView) => void;
 };
 
 export function Sidebar({
   activeView,
-  isRefreshing,
-  onRefresh,
   onViewChange,
 }: SidebarProps) {
   return (
-    <aside className="shell-sidebar" id="app-sidebar">
-      <div className="sidebar-brand">
+    <aside className={styles['shell-sidebar']} id="app-sidebar">
+      <div className={styles['sidebar-brand']}>
         <p className="eyebrow">WorldForge</p>
         <h1>World Workshop</h1>
         <p className="muted">
@@ -27,12 +24,12 @@ export function Sidebar({
         </p>
       </div>
 
-      <nav aria-label="Application sections" className="sidebar-nav">
+      <nav aria-label="Application sections" className={styles['sidebar-nav']}>
         {workspaceGroups.map((group) => (
-          <section className="sidebar-section" key={group}>
-            <p className="sidebar-section-label">{group}</p>
+          <section className={styles['sidebar-section']} key={group}>
+            <p className={styles['sidebar-section-label']}>{group}</p>
 
-            <div className="sidebar-link-list">
+            <div className={styles['sidebar-link-list']}>
               {workspaceOptions
                 .filter((workspace) => workspace.group === group)
                 .map((workspace) => (
@@ -40,14 +37,14 @@ export function Sidebar({
                     key={workspace.id}
                     aria-pressed={activeView === workspace.id}
                     className={
-                      activeView === workspace.id ? 'sidebar-link active' : 'sidebar-link'
+                      activeView === workspace.id ? `${styles['sidebar-link']} ${styles['active']}` : styles['sidebar-link']
                     }
                     onClick={() => {
                       onViewChange(workspace.id);
                     }}
                     type="button"
                   >
-                    <span className="sidebar-link-copy">
+                    <span className={styles['sidebar-link-copy']}>
                       <strong>{workspace.label}</strong>
                       <span>{workspace.description}</span>
                     </span>
@@ -58,22 +55,11 @@ export function Sidebar({
         ))}
       </nav>
 
-      <div className="sidebar-footer">
-        <p className="sidebar-footer-title">Sync</p>
-        <p className="muted sidebar-footer-copy">
-          Reload people, places, and items before jumping between workspaces.
+      <div className={styles['sidebar-footer']}>
+        <p className={styles['sidebar-footer-title']}>Shell controls</p>
+        <p className={`muted ${styles['sidebar-footer-copy']}`}>
+          Use the top strip to refresh data, collapse this rail, and jump between workspaces quickly.
         </p>
-
-        <button
-          className="secondary-button sidebar-refresh"
-          disabled={isRefreshing}
-          onClick={() => {
-            void onRefresh();
-          }}
-          type="button"
-        >
-          {isRefreshing ? 'Refreshing...' : 'Refresh data'}
-        </button>
       </div>
     </aside>
   );
