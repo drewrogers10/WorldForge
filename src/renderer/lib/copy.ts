@@ -4,5 +4,5 @@ export const appCopy = {
   shellDescription: 'Manage people, places, maps, items, and events in one workspace.',
   shellControlsTitle: 'Workspace Controls',
   shellControlsDescription:
-    'Use the top bar to refresh data, change the theme, and move between workspaces.',
+    'Use the sidebar to browse records and the top bar to refresh data or change the theme.',
 } as const;

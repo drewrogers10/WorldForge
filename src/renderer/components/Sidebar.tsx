@@ -1,19 +1,23 @@
-import {
-  workspaceGroups,
-  workspaceOptions,
-  type WorkspaceView,
-} from '@renderer/lib/forms';
 import { appCopy } from '@renderer/lib/copy';
+import type {
+  SidebarFolderId,
+  SidebarSelectableNode,
+  SidebarTreeNode,
+} from '@renderer/lib/sidebarTree';
 import styles from './Sidebar.module.css';
 
 type SidebarProps = {
-  activeView: WorkspaceView;
-  onViewChange: (view: WorkspaceView) => void;
+  isLoading: boolean;
+  nodes: SidebarTreeNode[];
+  onFolderToggle: (folderId: SidebarFolderId) => void;
+  onNodeSelect: (node: SidebarSelectableNode) => void;
 };
 
 export function Sidebar({
-  activeView,
-  onViewChange,
+  isLoading,
+  nodes,
+  onFolderToggle,
+  onNodeSelect,
 }: SidebarProps) {
   return (
     <aside className={styles['shell-sidebar']} id="app-sidebar">
@@ -24,34 +28,114 @@ export function Sidebar({
       </div>
 
       <nav aria-label="Application sections" className={styles['sidebar-nav']}>
-        {workspaceGroups.map((group) => (
-          <section className={styles['sidebar-section']} key={group}>
-            <p className={styles['sidebar-section-label']}>{group}</p>
+        {isLoading ? (
+          <p className={`muted ${styles['sidebar-status']}`}>Syncing record tree...</p>
+        ) : null}
 
-            <div className={styles['sidebar-link-list']}>
-              {workspaceOptions
-                .filter((workspace) => workspace.group === group)
-                .map((workspace) => (
+        <ul className={styles['sidebar-tree']}>
+          {nodes.map((node) => {
+            if (node.type === 'item') {
+              return (
+                <li className={styles['sidebar-tree-item']} key={node.id}>
+                  <div
+                    className={`${styles['sidebar-row']} ${node.isCurrent ? styles['current'] : ''}`}
+                  >
+                    <span aria-hidden="true" className={styles['sidebar-row-spacer']} />
+                    <button
+                      aria-current={node.isCurrent ? 'page' : undefined}
+                      className={styles['sidebar-row-button']}
+                      onClick={() => {
+                        onNodeSelect(node);
+                      }}
+                      type="button"
+                    >
+                      <span className={styles['sidebar-row-label']}>{node.label}</span>
+                    </button>
+                  </div>
+                </li>
+              );
+            }
+
+            if (node.type === 'disabled-folder') {
+              return (
+                <li className={styles['sidebar-tree-item']} key={node.id}>
+                  <div className={`${styles['sidebar-row']} ${styles['disabled']}`}>
+                    <span aria-hidden="true" className={styles['sidebar-row-spacer']} />
+                    <button
+                      aria-disabled="true"
+                      className={styles['sidebar-row-button']}
+                      disabled
+                      type="button"
+                    >
+                      <span className={styles['sidebar-row-label']}>{node.label}</span>
+                      <span className={styles['sidebar-badge']}>Soon</span>
+                    </button>
+                  </div>
+                </li>
+              );
+            }
+
+            return (
+              <li className={styles['sidebar-tree-item']} key={node.id}>
+                <div
+                  className={`${styles['sidebar-row']} ${node.isCurrent ? styles['current'] : ''}`}
+                >
                   <button
-                    key={workspace.id}
-                    aria-pressed={activeView === workspace.id}
-                    className={
-                      activeView === workspace.id ? `${styles['sidebar-link']} ${styles['active']}` : styles['sidebar-link']
-                    }
+                    aria-expanded={node.isExpanded}
+                    aria-label={node.isExpanded ? `Collapse ${node.label}` : `Expand ${node.label}`}
+                    className={styles['sidebar-toggle']}
                     onClick={() => {
-                      onViewChange(workspace.id);
+                      onFolderToggle(node.id);
                     }}
                     type="button"
                   >
-                    <span className={styles['sidebar-link-copy']}>
-                      <strong>{workspace.label}</strong>
-                      <span>{workspace.description}</span>
+                    <span
+                      aria-hidden="true"
+                      className={`${styles['sidebar-toggle-indicator']} ${node.isExpanded ? styles['expanded'] : ''}`}
+                    >
+                      &gt;
                     </span>
                   </button>
-                ))}
-            </div>
-          </section>
-        ))}
+                  <button
+                    aria-current={node.isCurrent ? 'page' : undefined}
+                    className={styles['sidebar-row-button']}
+                    onClick={() => {
+                      onNodeSelect(node);
+                    }}
+                    type="button"
+                  >
+                    <span className={styles['sidebar-row-label']}>{node.label}</span>
+                    <span className={styles['sidebar-badge']}>{node.count}</span>
+                  </button>
+                </div>
+
+                {node.isExpanded ? (
+                  <ul className={styles['sidebar-children']}>
+                    {node.children.length === 0 ? (
+                      <li className={styles['sidebar-empty']}>No records yet.</li>
+                    ) : null}
+
+                    {node.children.map((child) => (
+                      <li className={styles['sidebar-child-item']} key={child.id}>
+                        <button
+                          aria-current={child.isCurrent ? 'page' : undefined}
+                          className={`${styles['sidebar-child-button']} ${child.isCurrent ? styles['currentChild'] : ''}`}
+                          onClick={() => {
+                            onNodeSelect(child);
+                          }}
+                          type="button"
+                        >
+                          <span aria-hidden="true" className={styles['sidebar-child-marker']} />
+                          <span className={styles['sidebar-child-label']}>{child.label}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
       </nav>
 
       <div className={styles['sidebar-footer']}>

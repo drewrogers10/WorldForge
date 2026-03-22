@@ -1,3 +1,7 @@
+:root {
+  height: 100%;
+}
+
 :root, [data-theme="preset-a"] {
   color-scheme: light;
   --color-primary: #2E4036;
@@ -95,10 +99,18 @@ body {
   box-sizing: border-box;
 }
 
+html,
+body,
+#root {
+  height: 100%;
+}
+
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 button,
@@ -152,7 +164,7 @@ textarea {
 }
 
 #root {
-  min-height: 100vh;
+  min-height: 0;
 }
 
 .panel-header {

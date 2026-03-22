@@ -4,6 +4,7 @@ import { emptyLocationForm, getErrorMessage, type LocationFormState } from '@ren
 import { useTemporalStore } from '@renderer/store/temporalStore';
 import { useWorldStore } from '@renderer/store/worldStore';
 import { useEntityStore } from '@renderer/store/entityStore';
+import { useSidebarStore } from '@renderer/store/sidebarStore';
 import { useUiStore } from '@renderer/store/uiStore';
 import { EntityLinksPanel } from '@renderer/components/EntityLinksPanel';
 import type { TemporalDetailStatus } from '@shared/temporal';
@@ -14,6 +15,7 @@ export function LocationPage() {
   const tick = previewTick ?? committedTick;
   const { characters, locations, items, isLoading, loadWorldData } = useWorldStore();
   const { selectedLocationId, setSelectedLocationId } = useEntityStore();
+  const loadSidebarData = useSidebarStore((state) => state.loadSidebarData);
   const setErrorMessage = useUiStore((state) => state.setErrorMessage);
 
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
@@ -72,7 +74,10 @@ export function LocationPage() {
       setSelectedLocationId(created.id);
       setCreateLocationForm(emptyLocationForm(committedTick));
       await refreshTimeline();
-      await loadWorldData(committedTick);
+      await Promise.all([
+        loadWorldData(committedTick),
+        loadSidebarData(committedTick),
+      ]);
     } catch (err) { setErrorMessage(getErrorMessage(err)); } 
     finally { setIsCreatingLocation(false); }
   }
@@ -85,7 +90,10 @@ export function LocationPage() {
     try {
       await window.worldForge.updateLocation({ id: selectedLocationId, ...editLocationForm });
       await refreshTimeline();
-      await loadWorldData(committedTick);
+      await Promise.all([
+        loadWorldData(committedTick),
+        loadSidebarData(committedTick),
+      ]);
     } catch (err) { setErrorMessage(getErrorMessage(err)); } 
     finally { setIsUpdatingLocation(false); }
   }
@@ -98,7 +106,10 @@ export function LocationPage() {
     try {
       await window.worldForge.deleteLocation({ id: selectedLocationId, effectiveTick: committedTick });
       await refreshTimeline();
-      await loadWorldData(committedTick);
+      await Promise.all([
+        loadWorldData(committedTick),
+        loadSidebarData(committedTick),
+      ]);
     } catch (err) { setErrorMessage(getErrorMessage(err)); } 
     finally { setIsDeletingLocation(false); }
   }

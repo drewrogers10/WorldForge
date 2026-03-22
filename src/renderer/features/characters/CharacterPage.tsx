@@ -4,6 +4,7 @@ import { emptyCharacterForm, getErrorMessage, type CharacterFormState } from '@r
 import { useTemporalStore } from '@renderer/store/temporalStore';
 import { useWorldStore } from '@renderer/store/worldStore';
 import { useEntityStore } from '@renderer/store/entityStore';
+import { useSidebarStore } from '@renderer/store/sidebarStore';
 import { useUiStore } from '@renderer/store/uiStore';
 import type { TemporalDetailStatus } from '@shared/temporal';
 import type { Character } from '@shared/character';
@@ -13,6 +14,7 @@ export function CharacterPage() {
   const tick = previewTick ?? committedTick;
   const { characters, locations, isLoading, loadWorldData } = useWorldStore();
   const { selectedCharacterId, setSelectedCharacterId } = useEntityStore();
+  const loadSidebarData = useSidebarStore((state) => state.loadSidebarData);
   const setErrorMessage = useUiStore((state) => state.setErrorMessage);
 
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
@@ -80,7 +82,10 @@ export function CharacterPage() {
       setSelectedCharacterId(created.id);
       setCreateCharacterForm(emptyCharacterForm(committedTick));
       await refreshTimeline();
-      await loadWorldData(committedTick);
+      await Promise.all([
+        loadWorldData(committedTick),
+        loadSidebarData(committedTick),
+      ]);
     } catch (err) { setErrorMessage(getErrorMessage(err)); } 
     finally { setIsCreatingCharacter(false); }
   }
@@ -93,7 +98,10 @@ export function CharacterPage() {
     try {
       await window.worldForge.updateCharacter({ id: selectedCharacterId, ...editCharacterForm });
       await refreshTimeline();
-      await loadWorldData(committedTick);
+      await Promise.all([
+        loadWorldData(committedTick),
+        loadSidebarData(committedTick),
+      ]);
     } catch (err) { setErrorMessage(getErrorMessage(err)); } 
     finally { setIsUpdatingCharacter(false); }
   }
@@ -106,7 +114,10 @@ export function CharacterPage() {
     try {
       await window.worldForge.deleteCharacter({ id: selectedCharacterId, effectiveTick: committedTick });
       await refreshTimeline();
-      await loadWorldData(committedTick);
+      await Promise.all([
+        loadWorldData(committedTick),
+        loadSidebarData(committedTick),
+      ]);
     } catch (err) { setErrorMessage(getErrorMessage(err)); } 
     finally { setIsDeletingCharacter(false); }
   }

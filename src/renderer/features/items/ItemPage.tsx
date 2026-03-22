@@ -4,6 +4,7 @@ import { emptyItemForm, getErrorMessage, type ItemFormState } from '@renderer/li
 import { useTemporalStore } from '@renderer/store/temporalStore';
 import { useWorldStore } from '@renderer/store/worldStore';
 import { useEntityStore } from '@renderer/store/entityStore';
+import { useSidebarStore } from '@renderer/store/sidebarStore';
 import { useUiStore } from '@renderer/store/uiStore';
 import type { TemporalDetailStatus } from '@shared/temporal';
 import type { Item } from '@shared/item';
@@ -13,6 +14,7 @@ export function ItemPage() {
   const tick = previewTick ?? committedTick;
   const { characters, locations, items, isLoading, loadWorldData } = useWorldStore();
   const { selectedItemId, setSelectedItemId } = useEntityStore();
+  const loadSidebarData = useSidebarStore((state) => state.loadSidebarData);
   const setErrorMessage = useUiStore((state) => state.setErrorMessage);
 
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
@@ -77,7 +79,10 @@ export function ItemPage() {
       setSelectedItemId(created.id);
       setCreateItemForm(emptyItemForm(committedTick));
       await refreshTimeline();
-      await loadWorldData(committedTick);
+      await Promise.all([
+        loadWorldData(committedTick),
+        loadSidebarData(committedTick),
+      ]);
     } catch (err) { setErrorMessage(getErrorMessage(err)); } 
     finally { setIsCreatingItem(false); }
   }
@@ -90,7 +95,10 @@ export function ItemPage() {
     try {
       await window.worldForge.updateItem({ id: selectedItemId, ...editItemForm });
       await refreshTimeline();
-      await loadWorldData(committedTick);
+      await Promise.all([
+        loadWorldData(committedTick),
+        loadSidebarData(committedTick),
+      ]);
     } catch (err) { setErrorMessage(getErrorMessage(err)); } 
     finally { setIsUpdatingItem(false); }
   }
@@ -103,7 +111,10 @@ export function ItemPage() {
     try {
       await window.worldForge.deleteItem({ id: selectedItemId, effectiveTick: committedTick });
       await refreshTimeline();
-      await loadWorldData(committedTick);
+      await Promise.all([
+        loadWorldData(committedTick),
+        loadSidebarData(committedTick),
+      ]);
     } catch (err) { setErrorMessage(getErrorMessage(err)); } 
     finally { setIsDeletingItem(false); }
   }

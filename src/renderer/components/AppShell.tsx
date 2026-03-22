@@ -1,10 +1,20 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { workspaceOptions, type WorkspaceView } from '@renderer/lib/forms';
+import type { WorkspaceView } from '@renderer/lib/forms';
+import {
+  buildSidebarTreeNodes,
+  isSidebarFolderExpanded,
+  resolveSidebarSelection,
+  type SidebarFolderExpansionState,
+  type SidebarFolderId,
+  type SidebarSelectableNode,
+} from '@renderer/lib/sidebarTree';
 import { appCopy } from '@renderer/lib/copy';
 import { Sidebar } from './Sidebar';
 import { TemporalDock } from './TemporalDock';
 import { ThemeSwitcher } from './ThemeSwitcher';
+import { useEntityStore } from '@renderer/store/entityStore';
+import { useSidebarStore } from '@renderer/store/sidebarStore';
 import { useTemporalStore } from '@renderer/store/temporalStore';
 import { useUiStore } from '@renderer/store/uiStore';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -14,6 +24,7 @@ export function AppShell() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isCompactShell, setIsCompactShell] = useState(false);
   const [isSidebarDrawerOpen, setIsSidebarDrawerOpen] = useState(false);
+  const [sidebarExpansionState, setSidebarExpansionState] = useState<SidebarFolderExpansionState>({});
   const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
   const [shellTopHeight, setShellTopHeight] = useState<string | null>(null);
   const location = useLocation();
@@ -21,6 +32,7 @@ export function AppShell() {
   const topbarRef = useRef<HTMLDivElement | null>(null);
 
   const activeView = (location.pathname.replace('/', '') || 'overview') as WorkspaceView;
+  const isMapsView = activeView === 'maps';
 
   const {
     committedTick,
@@ -31,6 +43,29 @@ export function AppShell() {
     setPreviewTick,
     refreshTimeline,
   } = useTemporalStore();
+  const tick = previewTick ?? committedTick;
+
+  const {
+    characters: sidebarCharacters,
+    events: sidebarEvents,
+    isLoading: isSidebarLoading,
+    items: sidebarItems,
+    loadSidebarData,
+    locations: sidebarLocations,
+    maps: sidebarMaps,
+  } = useSidebarStore();
+  const {
+    selectedCharacterId,
+    selectedEventId,
+    selectedItemId,
+    selectedLocationId,
+    selectedMapId,
+    setSelectedCharacterId,
+    setSelectedEventId,
+    setSelectedItemId,
+    setSelectedLocationId,
+    setSelectedMapId,
+  } = useEntityStore();
 
   const { errorMessage, isRefreshing, setIsRefreshing } = useUiStore();
 
@@ -59,6 +94,10 @@ export function AppShell() {
       setIsSidebarDrawerOpen(false);
     }
   }, [isCompactShell, location.pathname]);
+
+  useEffect(() => {
+    void loadSidebarData(tick);
+  }, [loadSidebarData, tick]);
 
   useEffect(() => {
     const topbarNode = topbarRef.current;
@@ -97,7 +136,10 @@ export function AppShell() {
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      await refreshTimeline();
+      await Promise.all([
+        refreshTimeline(),
+        loadSidebarData(tick),
+      ]);
       window.dispatchEvent(new Event('app:refreshList'));
     } finally {
       setIsRefreshing(false);
@@ -111,6 +153,63 @@ export function AppShell() {
     }
 
     setIsSidebarCollapsed((previousValue) => !previousValue);
+  };
+
+  const sidebarNodes = buildSidebarTreeNodes({
+    activeView,
+    data: {
+      characters: sidebarCharacters,
+      events: sidebarEvents,
+      items: sidebarItems,
+      locations: sidebarLocations,
+      maps: sidebarMaps,
+    },
+    expansionState: sidebarExpansionState,
+    selectionState: {
+      selectedCharacterId,
+      selectedEventId,
+      selectedItemId,
+      selectedLocationId,
+      selectedMapId,
+    },
+  });
+
+  const handleSidebarFolderToggle = (folderId: SidebarFolderId) => {
+    setSidebarExpansionState((current) => ({
+      ...current,
+      [folderId]: !isSidebarFolderExpanded(folderId, activeView, current),
+    }));
+  };
+
+  const handleSidebarNodeSelect = (node: SidebarSelectableNode) => {
+    const selection = resolveSidebarSelection(node);
+
+    if (!selection) {
+      return;
+    }
+
+    switch (selection.entitySelection?.kind) {
+      case 'character':
+        setSelectedCharacterId(selection.entitySelection.id);
+        break;
+      case 'event':
+        setSelectedEventId(selection.entitySelection.id);
+        break;
+      case 'item':
+        setSelectedItemId(selection.entitySelection.id);
+        break;
+      case 'location':
+        setSelectedLocationId(selection.entitySelection.id);
+        break;
+      case 'map':
+        setSelectedMapId(selection.entitySelection.id);
+        break;
+      default:
+        break;
+    }
+
+    navigate(`/${selection.route}`);
+    setIsSidebarDrawerOpen(false);
   };
 
   const sidebarToggleLabel = isCompactShell
@@ -133,6 +232,24 @@ export function AppShell() {
   const shellStyle = shellTopHeight
     ? ({ '--shell-top-height': shellTopHeight } as CSSProperties)
     : undefined;
+  const appMainClassName = [
+    styles['app-main'],
+    isMapsView ? styles['app-main-full-bleed'] : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const appBodyClassName = [
+    styles['app-body'],
+    isMapsView ? styles['app-body-full-bleed'] : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const routeFrameClassName = [
+    styles['route-frame'],
+    isMapsView ? styles['route-frame-full-bleed'] : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
     <div className={shellClassName} style={shellStyle}>
@@ -147,11 +264,10 @@ export function AppShell() {
 
       <div className={styles['sidebar-slot']}>
         <Sidebar
-          activeView={activeView}
-          onViewChange={(view) => {
-            navigate(`/${view}`);
-            setIsSidebarDrawerOpen(false);
-          }}
+          isLoading={isSidebarLoading}
+          nodes={sidebarNodes}
+          onFolderToggle={handleSidebarFolderToggle}
+          onNodeSelect={handleSidebarNodeSelect}
         />
       </div>
 
@@ -188,20 +304,7 @@ export function AppShell() {
             </div>
           </div>
 
-          <nav aria-label="General workspace navigation" className={styles['function-bar-nav']}>
-            {workspaceOptions.map((workspace) => (
-              <button
-                key={workspace.id}
-                aria-pressed={activeView === workspace.id}
-                className={activeView === workspace.id ? `${styles['function-bar-link']} ${styles['active']}` : styles['function-bar-link']}
-                onClick={() => navigate(`/${workspace.id}`)}
-                type="button"
-              >
-                <span className={styles['function-bar-link-label']}>{workspace.label}</span>
-                <span className={styles['function-bar-link-group']}>{workspace.group}</span>
-              </button>
-            ))}
-          </nav>
+          <div aria-hidden="true" className={styles['function-bar-slot']} />
         </div>
       </div>
 
@@ -218,12 +321,13 @@ export function AppShell() {
         />
       </div>
 
-      <main className={styles['app-main']}>
+      <main className={appMainClassName}>
         {errorMessage && <div className="status error">{errorMessage}</div>}
 
-        <div className={styles['app-body']}>
+        <div className={appBodyClassName}>
           <AnimatePresence mode="wait">
             <motion.div
+              className={routeFrameClassName}
               key={location.pathname}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.99, y: -5 }}

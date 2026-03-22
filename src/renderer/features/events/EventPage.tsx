@@ -3,6 +3,7 @@ import { EntityLinksPanel } from '@renderer/components/EntityLinksPanel';
 import { Panel } from '@renderer/components/Panel';
 import { getErrorMessage } from '@renderer/lib/forms';
 import { useEntityStore } from '@renderer/store/entityStore';
+import { useSidebarStore } from '@renderer/store/sidebarStore';
 import { useTemporalStore } from '@renderer/store/temporalStore';
 import { useUiStore } from '@renderer/store/uiStore';
 import type { Event } from '@shared/event';
@@ -76,6 +77,7 @@ export function EventPage() {
   const { committedTick, previewTick, refreshTimeline } = useTemporalStore();
   const tick = previewTick ?? committedTick;
   const { selectedEventId, setSelectedEventId } = useEntityStore();
+  const loadSidebarData = useSidebarStore((state) => state.loadSidebarData);
   const setErrorMessage = useUiStore((state) => state.setErrorMessage);
 
   const [events, setEvents] = useState<Event[]>([]);
@@ -173,7 +175,10 @@ export function EventPage() {
       setSelectedEventId(created.id);
       setCreateForm(createEmptyEventForm(committedTick));
       await refreshTimeline();
-      await reloadEvents();
+      await Promise.all([
+        reloadEvents(),
+        loadSidebarData(committedTick),
+      ]);
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     } finally {
@@ -197,7 +202,10 @@ export function EventPage() {
         ...toEventPayload(editForm),
       });
       await refreshTimeline();
-      await reloadEvents();
+      await Promise.all([
+        reloadEvents(),
+        loadSidebarData(committedTick),
+      ]);
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     } finally {
@@ -222,7 +230,10 @@ export function EventPage() {
       setSelectedEventId(null);
       setSelectedEvent(null);
       await refreshTimeline();
-      await reloadEvents();
+      await Promise.all([
+        reloadEvents(),
+        loadSidebarData(committedTick),
+      ]);
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     } finally {

@@ -9,7 +9,9 @@
   --shell-border: var(--color-panel-border);
   --shell-surface: var(--color-panel-bg);
   --shell-surface-strong: var(--color-panel-bg);
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
   display: grid;
   grid-template-columns: var(--shell-left-width-active) minmax(0, 1fr) var(--shell-right-width-current);
   grid-template-rows: auto minmax(0, 1fr);
@@ -17,7 +19,7 @@
     "sidebar topbar timeline"
     "sidebar main timeline";
   position: relative;
-  overflow-x: clip;
+  overflow: hidden;
   transition: grid-template-columns 220ms ease;
 }
 
@@ -43,7 +45,7 @@
   position: sticky;
   top: 0;
   align-self: start;
-  height: 100vh;
+  height: 100%;
   z-index: 40;
 }
 
@@ -65,7 +67,7 @@
   position: sticky;
   top: 0;
   align-self: start;
-  height: 100vh;
+  height: 100%;
   z-index: 35;
   pointer-events: none;
   overflow: visible;
@@ -74,10 +76,24 @@
 .app-main {
   grid-area: main;
   min-width: 0;
+  min-height: 0;
+  height: 100%;
   display: grid;
-  align-content: start;
+  grid-template-rows: auto minmax(0, 1fr);
   gap: 1rem;
   padding: 1.5rem var(--shell-main-inline-padding) 2rem;
+  overflow: hidden;
+}
+
+.app-main-full-bleed {
+  gap: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+  padding: 0;
+}
+
+.app-main-full-bleed :global(.status.error) {
+  margin: 1rem 1rem 0;
 }
 
 .app-topbar {
@@ -130,6 +146,11 @@
   gap: 0.75rem;
   flex-wrap: wrap;
   flex: 1 1 20rem;
+}
+
+.function-bar-slot {
+  flex: 1 1 100%;
+  min-height: 0;
 }
 
 .function-bar-nav {
@@ -188,6 +209,27 @@
 
 .app-body {
   min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.app-body-full-bleed {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+.route-frame {
+  min-width: 0;
+  min-height: 100%;
+}
+
+.route-frame-full-bleed {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 @media (max-width: 1180px) {
@@ -269,6 +311,10 @@
     padding-left: 1.25rem;
     padding-right: 1.25rem;
   }
+
+  .app-main-full-bleed {
+    padding: 0;
+  }
 }
 
 @media (max-width: 720px) {
@@ -321,5 +367,9 @@
 
   .app-main {
     padding: 1rem 1rem 1.5rem;
+  }
+
+  .app-main-full-bleed {
+    padding: 0;
   }
 }

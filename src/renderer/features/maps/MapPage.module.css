@@ -1,12 +1,10 @@
 .maps-layout {
   display: grid;
-  grid-template-columns: minmax(18rem, 24rem) minmax(0, 1.7fr) minmax(20rem, 24rem);
-  gap: 1rem;
-  align-items: start;
-}
-
-.stack {
-  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
   gap: 1rem;
 }
 
@@ -14,38 +12,43 @@
   margin: 0 0 1rem;
 }
 
-.canvasPanel {
-  min-height: 42rem;
-}
-
-.toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.6rem;
-  margin-bottom: 1rem;
-}
-
 .canvasShell {
   display: grid;
+  height: 100%;
+  min-height: 100%;
+  grid-template-rows: minmax(0, 1fr) auto;
+  overflow: hidden;
+  overscroll-behavior: none;
   gap: 0.85rem;
 }
 
 .canvasFrame {
   position: relative;
-  border: 1px solid var(--color-panel-border);
-  border-radius: 1rem;
+  min-height: 0;
+  height: 100%;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.12)),
     radial-gradient(circle at top left, rgba(46, 64, 54, 0.08), transparent 35%),
     rgba(8, 12, 18, 0.92);
   overflow: hidden;
+  overscroll-behavior: none;
 }
 
 .canvas {
   display: block;
   width: 100%;
-  height: min(68vh, 42rem);
+  height: 100%;
+  min-height: 0;
   cursor: crosshair;
+}
+
+.canvasEmptyState {
+  display: grid;
+  height: 100%;
+  min-height: 0;
+  place-items: center;
+  padding: 5.5rem 1.5rem 1.5rem;
+  text-align: center;
 }
 
 .canvasPan {
@@ -56,20 +59,133 @@
   cursor: grabbing;
 }
 
+.overlayLayer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.toolbarRegion {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  right: 1rem;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.toolbar {
+  display: flex;
+  width: fit-content;
+  max-width: 100%;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 1rem;
+  background: rgba(8, 12, 18, 0.76);
+  backdrop-filter: blur(14px);
+  padding: 0.8rem;
+  pointer-events: auto;
+  box-shadow: 0 1rem 2.5rem rgba(0, 0, 0, 0.22);
+}
+
+.toolbar :global(button) {
+  color: #f5efe5;
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.toolbar :global(button:hover) {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.toolbar :global(button:disabled) {
+  color: rgba(245, 239, 229, 0.55);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.workspaceLabel {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 0.85rem;
+  color: #f5efe5;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.75rem 0.95rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.drawerRegion {
+  position: absolute;
+  top: 5.85rem;
+  bottom: 1rem;
+  z-index: 2;
+  width: min(28rem, calc(100% - 2rem));
+  pointer-events: none;
+}
+
+.drawerRegionStart {
+  left: 1rem;
+}
+
+.drawerRegionEnd {
+  right: 1rem;
+}
+
+.drawerPanel {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  pointer-events: auto;
+  box-shadow: 0 1.1rem 2.75rem rgba(0, 0, 0, 0.28);
+}
+
+.drawerPanelShell {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  pointer-events: auto;
+}
+
+.drawerStack {
+  display: grid;
+  gap: 1rem;
+}
+
+.drawerStack :global(.linked-card) {
+  margin-bottom: 0;
+}
+
+.drawerSectionHeader {
+  margin-bottom: 1rem;
+}
+
+.drawerSectionHeader :global(.card-title) {
+  margin: 0;
+}
+
 .canvasMeta {
   display: flex;
   flex-wrap: wrap;
   gap: 0.6rem;
 }
 
-.toolButton {
-  color: var(--color-text);
-  background: rgba(128, 128, 128, 0.12);
+.toolbar .toolButton {
+  color: #f5efe5;
+  background: rgba(255, 255, 255, 0.12);
 }
 
-.toolButtonActive {
+.toolbar .toolButtonActive {
   color: var(--color-button-text);
   background: var(--color-button-bg);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+}
+
+.toolbar .toolButtonActive:hover {
+  background: var(--color-button-hover);
 }
 
 .miniGrid {
@@ -104,11 +220,33 @@
 }
 
 @media (max-width: 1360px) {
-  .maps-layout {
-    grid-template-columns: 1fr;
+  .toolbarRegion {
+    top: 0.85rem;
+    left: 0.85rem;
+    right: 0.85rem;
   }
 
-  .canvas {
-    height: 34rem;
+  .toolbar {
+    width: 100%;
+  }
+
+  .workspaceLabel {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+
+  .drawerRegion,
+  .drawerRegionStart,
+  .drawerRegionEnd {
+    top: 6.2rem;
+    right: 1rem;
+    left: 1rem;
+    width: auto;
+  }
+}
+
+@media (max-width: 720px) {
+  .canvasFrame {
+    border-radius: 0;
   }
 }
