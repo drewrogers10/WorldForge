@@ -359,6 +359,7 @@ export const maps = sqliteTable(
     id: integer('id').primaryKey({ autoIncrement: true }),
     name: text('name').notNull(),
     displayKind: text('display_kind').notNull(),
+    themePreset: text('theme_preset').notNull().default('parchment'),
     focusLocationId: integer('focus_location_id').references(() => locations.id, {
       onDelete: 'set null',
     }),
@@ -375,6 +376,10 @@ export const maps = sqliteTable(
     displayKindCheck: check(
       'maps_display_kind_check',
       sql`${table.displayKind} IN ('vector', 'image')`,
+    ),
+    themePresetCheck: check(
+      'maps_theme_preset_check',
+      sql`${table.themePreset} IN ('parchment', 'terrain', 'political')`,
     ),
     canvasWidthCheck: check('maps_canvas_width_check', sql`${table.canvasWidth} > 0`),
     canvasHeightCheck: check('maps_canvas_height_check', sql`${table.canvasHeight} > 0`),
@@ -421,6 +426,7 @@ export const mapFeatureVersions = sqliteTable(
     validFrom: integer('valid_from').notNull(),
     validTo: integer('valid_to'),
     label: text('label').notNull().default(''),
+    featureRole: text('feature_role').notNull().default('custom'),
     geometryJson: text('geometry_json').notNull(),
     styleJson: text('style_json'),
     sourceEventId: integer('source_event_id').references(() => events.id, {
@@ -434,6 +440,10 @@ export const mapFeatureVersions = sqliteTable(
     openIdx: uniqueIndex('map_feature_versions_open_idx')
       .on(table.featureId)
       .where(sql`${table.validTo} IS NULL`),
+    featureRoleCheck: check(
+      'map_feature_versions_role_check',
+      sql`${table.featureRole} IN ('custom', 'settlement', 'river', 'road', 'mountainRange', 'forest', 'regionBorder')`,
+    ),
     validityCheck: check(
       'map_feature_versions_validity_check',
       existenceCheck(table.validFrom, table.validTo),
@@ -462,8 +472,8 @@ export const mapAnchors = sqliteTable(
       table.locationId,
     ),
     locationIdx: index('map_anchors_location_idx').on(table.locationId),
-    xCheck: check('map_anchors_x_check', sql`${table.x} >= 0 AND ${table.x} <= 10000`),
-    yCheck: check('map_anchors_y_check', sql`${table.y} >= 0 AND ${table.y} <= 10000`),
+    xCheck: check('map_anchors_x_check', sql`${table.x} >= 0`),
+    yCheck: check('map_anchors_y_check', sql`${table.y} >= 0`),
   }),
 );
 

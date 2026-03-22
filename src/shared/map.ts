@@ -4,10 +4,20 @@ import { locationReferenceSchema } from './location';
 import { effectiveTickSchema, worldTickSchema } from './temporal';
 
 const mapIdSchema = z.number().int().positive();
-const coordinateSchema = z.number().int().min(0).max(10000);
+const coordinateSchema = z.number().int().min(0);
 const mapNameSchema = z.string().trim().min(1).max(160);
 const displayKindSchema = z.enum(['vector', 'image']);
+const themePresetSchema = z.enum(['parchment', 'terrain', 'political']);
 const featureKindSchema = z.enum(['marker', 'path', 'polygon', 'border']);
+const featureRoleSchema = z.enum([
+  'custom',
+  'settlement',
+  'river',
+  'road',
+  'mountainRange',
+  'forest',
+  'regionBorder',
+]);
 const nullableLocationIdSchema = z.number().int().positive().nullable();
 const nullableMapIdSchema = z.number().int().positive().nullable();
 const nullableEventIdSchema = z.number().int().positive().nullable();
@@ -54,6 +64,7 @@ export const mapSchema = z.object({
   id: mapIdSchema,
   name: mapNameSchema,
   displayKind: displayKindSchema,
+  themePreset: themePresetSchema,
   focusLocationId: nullableLocationIdSchema,
   focusLocation: locationReferenceSchema.nullable(),
   parentMapId: nullableMapIdSchema,
@@ -69,6 +80,7 @@ export const mapFeatureSchema = z.object({
   id: mapIdSchema,
   mapId: mapIdSchema,
   featureKind: featureKindSchema,
+  featureRole: featureRoleSchema,
   locationId: nullableLocationIdSchema,
   location: locationReferenceSchema.nullable(),
   eventId: nullableEventIdSchema,
@@ -111,6 +123,7 @@ export const getMapInputSchema = z.object({
 export const createMapInputSchema = z.object({
   name: mapNameSchema,
   displayKind: displayKindSchema,
+  themePreset: themePresetSchema,
   focusLocationId: nullableLocationIdSchema,
   parentMapId: nullableMapIdSchema,
   imageAssetPath: z.string().trim().max(4000).nullable(),
@@ -131,6 +144,7 @@ export const updateMapInputSchema = createMapInputSchema.extend({
 export const createMapFeatureInputSchema = z.object({
   mapId: mapIdSchema,
   featureKind: featureKindSchema,
+  featureRole: featureRoleSchema,
   locationId: nullableLocationIdSchema,
   eventId: nullableEventIdSchema,
   label: z.string().trim().max(160),
@@ -169,6 +183,8 @@ export type MapStyle = z.infer<typeof mapStyleSchema>;
 export type MapRecord = z.infer<typeof mapSchema>;
 export type MapFeature = z.infer<typeof mapFeatureSchema>;
 export type MapAnchor = z.infer<typeof mapAnchorSchema>;
+export type ThemePreset = z.infer<typeof themePresetSchema>;
+export type FeatureRole = z.infer<typeof featureRoleSchema>;
 export type ListMapFeaturesInput = z.infer<typeof listMapFeaturesInputSchema>;
 export type ListMapAnchorsInput = z.infer<typeof listMapAnchorsInputSchema>;
 export type GetMapInput = z.infer<typeof getMapInputSchema>;

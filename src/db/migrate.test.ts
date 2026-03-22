@@ -147,6 +147,15 @@ describe('database migrations', () => {
     const tables = context.client
       .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
       .all() as TableInfoRow[];
+    const mapColumns = context.client
+      .prepare("PRAGMA table_info('maps')")
+      .all() as TableInfoRow[];
+    const mapFeatureVersionColumns = context.client
+      .prepare("PRAGMA table_info('map_feature_versions')")
+      .all() as TableInfoRow[];
+    const mapAnchorTableDefinition = context.client
+      .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'map_anchors'")
+      .get() as SqlDefinitionRow | undefined;
     const mapAnchorIndexes = context.client
       .prepare("PRAGMA index_list('map_anchors')")
       .all() as Array<{ name: string; unique: number }>;
@@ -164,6 +173,14 @@ describe('database migrations', () => {
         'entity_links',
       ]),
     );
+    expect(mapColumns.map((column) => column.name)).toEqual(
+      expect.arrayContaining(['theme_preset']),
+    );
+    expect(mapFeatureVersionColumns.map((column) => column.name)).toEqual(
+      expect.arrayContaining(['feature_role']),
+    );
+    expect(mapAnchorTableDefinition?.sql).toContain('CHECK(`x` >= 0)');
+    expect(mapAnchorTableDefinition?.sql).not.toContain('<= 10000');
     expect(mapAnchorIndexes).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

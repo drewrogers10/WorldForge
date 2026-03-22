@@ -216,6 +216,7 @@ describe('ipc contracts', () => {
     const createMapFeatureInput = ipcContracts.createMapFeature.input.parse({
       mapId: 2,
       featureKind: 'border',
+      featureRole: 'regionBorder',
       locationId: 3,
       eventId: 1,
       label: '  Western Border  ',
@@ -242,6 +243,7 @@ describe('ipc contracts', () => {
         id: 2,
         name: 'Harbor Reach Region',
         displayKind: 'image',
+        themePreset: 'terrain',
         focusLocationId: 3,
         focusLocation: {
           id: 3,
@@ -257,8 +259,14 @@ describe('ipc contracts', () => {
       }),
     ).toMatchObject({
       displayKind: 'image',
+      themePreset: 'terrain',
       imageAssetPath: '/tmp/harbor-reach.png',
     });
+
+    expect(ipcContracts.pickMapImage.output.parse('/tmp/harbor-reach.png')).toBe(
+      '/tmp/harbor-reach.png',
+    );
+    expect(ipcContracts.pickMapImage.output.parse(null)).toBeNull();
 
     expect(
       ipcContracts.upsertMapAnchor.output.parse({
@@ -299,6 +307,7 @@ describe('ipc contracts', () => {
       ipcContracts.createMapFeature.input.parse({
         mapId: 2,
         featureKind: 'marker',
+        featureRole: 'settlement',
         locationId: null,
         eventId: null,
         label: '',

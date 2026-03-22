@@ -401,7 +401,8 @@ textarea {
   min-height: clamp(24rem, 48vh, 32rem);
 }
 
-.entity-placeholder-panel {
+.entity-placeholder-panel,
+.workspace-placeholder-panel {
   grid-column: 1 / -1;
 }
 

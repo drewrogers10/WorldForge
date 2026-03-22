@@ -1,33 +1,28 @@
-import type { FormEvent } from 'react';
 import type { Character } from '@shared/character';
 import type { Location } from '@shared/location';
 import type { TemporalDetailStatus } from '@shared/temporal';
 import type { CharacterFormState } from '@renderer/lib/forms';
+import type { WorkspaceMode } from '@renderer/lib/topBar';
 import { CharacterEditor } from './CharacterEditor';
 import { CharacterList } from './CharacterList';
 
 type CharacterWorkspaceProps = {
+  activeForm: CharacterFormState;
   characterLocationFilter: string;
   characterSearch: string;
   changedCharacterIds: ReadonlySet<number>;
   characters: Character[];
-  createCharacterForm: CharacterFormState;
-  editCharacterForm: CharacterFormState;
   filteredCharacters: Character[];
-  isCreatingCharacter: boolean;
-  isDeletingCharacter: boolean;
   isLoadingCharacterDetails: boolean;
   isLoadingCharacters: boolean;
-  isUpdatingCharacter: boolean;
+  isSavingCharacter: boolean;
   locations: Location[];
+  mode: WorkspaceMode;
   onCharacterLocationFilterChange: (value: string) => void;
   onCharacterSearchChange: (value: string) => void;
-  onCreateCharacter: (event: FormEvent<HTMLFormElement>) => void | Promise<void>;
-  onCreateCharacterFormChange: (changes: Partial<CharacterFormState>) => void;
-  onDeleteCharacter: () => void | Promise<void>;
-  onEditCharacterFormChange: (changes: Partial<CharacterFormState>) => void;
+  onFormChange: (changes: Partial<CharacterFormState>) => void;
   onSelectCharacter: (id: number) => void;
-  onUpdateCharacter: (event: FormEvent<HTMLFormElement>) => void | Promise<void>;
+  onSubmit: () => void | Promise<void>;
   selectedCharacter: Character | null;
   selectedCharacterId: number | null;
   selectedCharacterStatus: TemporalDetailStatus;
@@ -35,27 +30,22 @@ type CharacterWorkspaceProps = {
 };
 
 export function CharacterWorkspace({
+  activeForm,
   characterLocationFilter,
   characterSearch,
   changedCharacterIds,
   characters,
-  createCharacterForm,
-  editCharacterForm,
   filteredCharacters,
-  isCreatingCharacter,
-  isDeletingCharacter,
   isLoadingCharacterDetails,
   isLoadingCharacters,
-  isUpdatingCharacter,
+  isSavingCharacter,
   locations,
+  mode,
   onCharacterLocationFilterChange,
   onCharacterSearchChange,
-  onCreateCharacter,
-  onCreateCharacterFormChange,
-  onDeleteCharacter,
-  onEditCharacterFormChange,
+  onFormChange,
   onSelectCharacter,
-  onUpdateCharacter,
+  onSubmit,
   selectedCharacter,
   selectedCharacterId,
   selectedCharacterStatus,
@@ -79,30 +69,15 @@ export function CharacterWorkspace({
 
       <CharacterEditor
         character={selectedCharacter}
-        form={editCharacterForm}
-        isDeleting={isDeletingCharacter}
+        form={activeForm}
         isLoading={isLoadingCharacterDetails}
-        isSubmitting={isUpdatingCharacter}
+        isSubmitting={isSavingCharacter}
         locations={locations}
-        mode="edit"
-        onDelete={onDeleteCharacter}
-        onFormChange={onEditCharacterFormChange}
-        onSubmit={onUpdateCharacter}
+        mode={mode}
+        onFormChange={onFormChange}
+        onSubmit={onSubmit}
         selectedCharacterId={selectedCharacterId}
         selectedCharacterStatus={selectedCharacterStatus}
-        tick={tick}
-      />
-
-      <CharacterEditor
-        character={null}
-        form={createCharacterForm}
-        isSubmitting={isCreatingCharacter}
-        locations={locations}
-        mode="create"
-        onFormChange={onCreateCharacterFormChange}
-        onSubmit={onCreateCharacter}
-        selectedCharacterId={selectedCharacterId}
-        selectedCharacterStatus="active"
         tick={tick}
       />
     </main>

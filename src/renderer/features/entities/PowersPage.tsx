@@ -1,16 +1,27 @@
-import { EntityWorkspacePlaceholder } from './EntityWorkspacePlaceholder';
+import { WorkspacePlaceholderPage } from '@renderer/features/sections/WorkspacePlaceholderPage';
 
 export function PowersPage() {
   return (
-    <EntityWorkspacePlaceholder
-      description="Capture the rules behind magic, divine gifts, technology, or other extraordinary forces that shape the world."
-      focusAreas={[
-        'Power sources and who can access them',
-        'Limits, costs, and side effects',
-        'Signature abilities, schools, or domains',
+    <WorkspacePlaceholderPage
+      cards={[
+        {
+          title: 'Tracks',
+          items: [
+            'Recognizable power systems and disciplines inside the setting',
+            'Who can access those powers and how they are practiced',
+            'Costs, limits, institutions, and consequences tied to their use',
+          ],
+        },
+        {
+          title: 'Boundary',
+          body: 'Use Powers for the in-world systems characters deal with directly. Use Theories for behind-the-scenes explanations of why those systems work.',
+        },
+        {
+          title: 'Current Coverage',
+          body: 'The powers workspace is active in navigation now, but its dedicated editor still needs to be built.',
+        },
       ]}
-      implementationNote="This workspace is not editable yet, but it now opens a placeholder instead of dropping you on a blank route."
-      scopeNote="Use People, Places, Items, Maps, and Events while the full powers editor is still being built."
+      description="Powers covers the active systems, forces, and disciplines that operate inside the setting, from magic traditions to divine gifts to unusual technologies."
       title="Powers"
     />
   );

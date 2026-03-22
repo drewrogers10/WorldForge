@@ -6,6 +6,7 @@ export type MapRecord = {
   id: number;
   name: string;
   displayKind: 'vector' | 'image';
+  themePreset: 'parchment' | 'terrain' | 'political';
   focusLocationId: number | null;
   focusLocationName: string | null;
   parentMapId: number | null;
@@ -32,6 +33,14 @@ export type MapFeatureRecord = {
   id: number;
   mapId: number;
   featureKind: 'marker' | 'path' | 'polygon' | 'border';
+  featureRole:
+    | 'custom'
+    | 'settlement'
+    | 'river'
+    | 'road'
+    | 'mountainRange'
+    | 'forest'
+    | 'regionBorder';
   locationId: number | null;
   locationName: string | null;
   eventId: number | null;
@@ -67,6 +76,7 @@ export type MapAnchorRecord = {
 type CreateMapRowInput = {
   name: string;
   displayKind: 'vector' | 'image';
+  themePreset: 'parchment' | 'terrain' | 'political';
   focusLocationId: number | null;
   parentMapId: number | null;
   imageAssetPath: string | null;
@@ -104,6 +114,7 @@ function mapSelectSql(): string {
       m.id,
       m.name,
       m.display_kind AS displayKind,
+      m.theme_preset AS themePreset,
       m.focus_location_id AS focusLocationId,
       fl.name AS focusLocationName,
       m.parent_map_id AS parentMapId,
@@ -205,6 +216,7 @@ function mapFeatureSelectSql(intervalClause: string): string {
       mf.id,
       mf.map_id AS mapId,
       mf.feature_kind AS featureKind,
+      mfv.feature_role AS featureRole,
       mf.location_id AS locationId,
       l.name AS locationName,
       mf.event_id AS eventId,

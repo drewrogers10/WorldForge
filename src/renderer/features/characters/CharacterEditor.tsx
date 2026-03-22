@@ -1,4 +1,3 @@
-import type { FormEvent } from 'react';
 import type { Character } from '@shared/character';
 import type { Location } from '@shared/location';
 import { formatWorldTick, type TemporalDetailStatus } from '@shared/temporal';
@@ -9,18 +8,17 @@ import {
   toSelectValue,
   type CharacterFormState,
 } from '@renderer/lib/forms';
+import type { WorkspaceMode } from '@renderer/lib/topBar';
 
 type CharacterEditorProps = {
   character: Character | null;
   form: CharacterFormState;
-  isDeleting?: boolean;
   isLoading?: boolean;
   isSubmitting: boolean;
   locations: Location[];
-  mode: 'create' | 'edit';
-  onDelete?: () => void | Promise<void>;
+  mode: WorkspaceMode;
   onFormChange: (changes: Partial<CharacterFormState>) => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onSubmit: () => void | Promise<void>;
   selectedCharacterId: number | null;
   selectedCharacterStatus: TemporalDetailStatus;
   tick: number;
@@ -42,18 +40,18 @@ function describeCharacterStatus(status: TemporalDetailStatus, tick: number): st
 export function CharacterEditor({
   character,
   form,
-  isDeleting = false,
   isLoading = false,
   isSubmitting,
   locations,
   mode,
-  onDelete,
   onFormChange,
   onSubmit,
   selectedCharacterId,
   selectedCharacterStatus,
   tick,
 }: CharacterEditorProps) {
+  const isCreateMode = mode === 'create';
+  const isEditMode = mode === 'edit';
   const effectiveTickField = (
     <TemporalInput
       onChange={(effectiveTick) => {
@@ -63,10 +61,17 @@ export function CharacterEditor({
     />
   );
 
-  if (mode === 'create') {
+  if (isCreateMode) {
     return (
       <Panel title="Create Person">
-        <form className="form" onSubmit={onSubmit}>
+        <form
+          aria-busy={isSubmitting}
+          className="form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void onSubmit();
+          }}
+        >
           <label>
             <span>Name</span>
             <input
@@ -113,9 +118,9 @@ export function CharacterEditor({
 
           {effectiveTickField}
 
-          <button disabled={isSubmitting} type="submit">
-            {isSubmitting ? 'Creating...' : 'Create Person'}
-          </button>
+          <p className="muted helper-text">
+            Use the top bar to save or cancel this new person.
+          </p>
         </form>
       </Panel>
     );
@@ -161,73 +166,74 @@ export function CharacterEditor({
             </p>
           </div>
 
-          <form className="form" onSubmit={onSubmit}>
-            <label>
-              <span>Name</span>
-              <input
-                name="name"
-                onChange={(event) => {
-                  onFormChange({ name: event.target.value });
-                }}
-                required
-                value={form.name}
-              />
-            </label>
+          {isEditMode ? (
+            <form
+              aria-busy={isSubmitting}
+              className="form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void onSubmit();
+              }}
+            >
+              <label>
+                <span>Name</span>
+                <input
+                  name="name"
+                  onChange={(event) => {
+                    onFormChange({ name: event.target.value });
+                  }}
+                  required
+                  value={form.name}
+                />
+              </label>
 
-            <label>
-              <span>Summary</span>
-              <textarea
-                name="summary"
-                onChange={(event) => {
-                  onFormChange({ summary: event.target.value });
-                }}
-                rows={8}
-                value={form.summary}
-              />
-            </label>
+              <label>
+                <span>Summary</span>
+                <textarea
+                  name="summary"
+                  onChange={(event) => {
+                    onFormChange({ summary: event.target.value });
+                  }}
+                  rows={8}
+                  value={form.summary}
+                />
+              </label>
 
-            <label>
-              <span>Place</span>
-              <select
-                name="locationId"
-                onChange={(event) => {
-                  onFormChange({ locationId: toNullableId(event.target.value) });
-                }}
-                value={toSelectValue(form.locationId)}
-              >
-                <option value="">Unassigned</option>
-                {locations.map((location) => (
-                  <option key={location.id} value={String(location.id)}>
-                    {location.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <label>
+                <span>Place</span>
+                <select
+                  name="locationId"
+                  onChange={(event) => {
+                    onFormChange({ locationId: toNullableId(event.target.value) });
+                  }}
+                  value={toSelectValue(form.locationId)}
+                >
+                  <option value="">Unassigned</option>
+                  {locations.map((location) => (
+                    <option key={location.id} value={String(location.id)}>
+                      {location.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
 
-            {locations.length === 0 ? (
+              {locations.length === 0 ? (
+                <p className="muted helper-text">
+                  No saved places yet. Switch to the Places workspace to add one.
+                </p>
+              ) : null}
+
+              {effectiveTickField}
+
               <p className="muted helper-text">
-                No saved places yet. Switch to the Places workspace to add one.
+                Use the top bar to save, cancel, or end this person.
               </p>
-            ) : null}
-
-            {effectiveTickField}
-
-            <div className="button-row">
-              <button disabled={isSubmitting} type="submit">
-                {isSubmitting ? 'Saving...' : 'Save Changes'}
-              </button>
-              <button
-                className="danger-button"
-                disabled={isDeleting || isSubmitting}
-                onClick={() => {
-                  void onDelete?.();
-                }}
-                type="button"
-              >
-                {isDeleting ? 'Ending...' : 'End Person'}
-              </button>
-            </div>
-          </form>
+            </form>
+          ) : (
+            <p className="muted helper-text">
+              Use the top bar to edit or end this person.
+            </p>
+          )}
         </>
       ) : null}
     </Panel>

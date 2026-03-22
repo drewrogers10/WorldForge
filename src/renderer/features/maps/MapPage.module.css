@@ -196,18 +196,18 @@
 
 .featureLabel {
   fill: #f4efe0;
-  font-size: 220px;
+  font-size: var(--feature-label-font-size, 220px);
   paint-order: stroke;
   stroke: rgba(0, 0, 0, 0.45);
-  stroke-width: 45px;
+  stroke-width: var(--feature-label-stroke-width, 45px);
 }
 
 .anchorLabel {
   fill: #bfeadf;
-  font-size: 180px;
+  font-size: var(--anchor-label-font-size, 180px);
   paint-order: stroke;
   stroke: rgba(0, 0, 0, 0.55);
-  stroke-width: 40px;
+  stroke-width: var(--anchor-label-stroke-width, 40px);
 }
 
 .handle {
@@ -217,6 +217,26 @@
 .relatedList {
   display: grid;
   gap: 0.65rem;
+}
+
+.layerToggleGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr));
+  gap: 0.65rem;
+}
+
+.layerToggle {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.8rem;
+  padding: 0.7rem 0.85rem;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.layerToggle input {
+  margin: 0;
 }
 
 @media (max-width: 1360px) {

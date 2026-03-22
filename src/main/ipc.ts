@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron';
+import { BrowserWindow, dialog, ipcMain, type OpenDialogOptions } from 'electron';
 import type { StorageCoordinator } from '@backend/storage/types';
 import type { CharacterService } from '@backend/services/character-service';
 import type { EntityLinkService } from '@backend/services/entity-link-service';
@@ -91,6 +91,23 @@ export function registerIpcHandlers(
   registerHandler('getMap', (input) => services.mapService.getMap(input));
   registerHandler('createMap', (input) => services.mapService.createMap(input));
   registerHandler('updateMap', (input) => services.mapService.updateMap(input));
+  registerHandler('pickMapImage', async () => {
+    const options: OpenDialogOptions = {
+      properties: ['openFile'],
+      filters: [
+        {
+          name: 'Images',
+          extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'],
+        },
+      ],
+    };
+    const focusedWindow = BrowserWindow.getFocusedWindow();
+    const result = focusedWindow
+      ? await dialog.showOpenDialog(focusedWindow, options)
+      : await dialog.showOpenDialog(options);
+
+    return result.canceled ? null : result.filePaths[0] ?? null;
+  });
   registerHandler('listMapFeatures', (input) => services.mapService.listMapFeatures(input));
   registerHandler('createMapFeature', (input) =>
     services.mapService.createMapFeature(input),

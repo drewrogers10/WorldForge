@@ -87,6 +87,7 @@ export interface WorldForgeApi {
   getMap: (input: GetMapInput) => Promise<MapRecord | null>;
   createMap: (input: CreateMapInput) => Promise<MapRecord>;
   updateMap: (input: UpdateMapInput) => Promise<MapRecord>;
+  pickMapImage: () => Promise<string | null>;
   listMapFeatures: (input: ListMapFeaturesInput) => Promise<MapFeature[]>;
   createMapFeature: (input: CreateMapFeatureInput) => Promise<MapFeature>;
   updateMapFeatureVersion: (input: UpdateMapFeatureVersionInput) => Promise<MapFeature>;

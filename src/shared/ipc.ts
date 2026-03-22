@@ -81,6 +81,8 @@ function createContract<TInput extends ZodTypeAny, TOutput extends ZodTypeAny>(
   return { channel, input, output };
 }
 
+const filePathSchema = z.string().trim().min(1);
+
 export const ipcContracts = {
   listCharacters: createContract(
     'characters:list',
@@ -146,6 +148,7 @@ export const ipcContracts = {
   getMap: createContract('maps:get', getMapInputSchema, mapSchema.nullable()),
   createMap: createContract('maps:create', createMapInputSchema, mapSchema),
   updateMap: createContract('maps:update', updateMapInputSchema, mapSchema),
+  pickMapImage: createContract('maps:image:pick', z.void(), filePathSchema.nullable()),
   listMapFeatures: createContract(
     'maps:features:list',
     listMapFeaturesInputSchema,

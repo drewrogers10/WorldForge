@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.app.json",
+  "include": [
+    "src/renderer/window.d.ts",
+    "src/renderer/components/AppShell.tsx",
+    "src/renderer/components/TemporalDock.tsx",
+    "src/renderer/lib/temporalDock.ts",
+    "src/renderer/lib/temporalDock.test.ts"
+  ]
+}

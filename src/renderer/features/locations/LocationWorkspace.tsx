@@ -1,30 +1,26 @@
-import type { FormEvent, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import type { Character } from '@shared/character';
 import type { Location } from '@shared/location';
 import type { TemporalDetailStatus } from '@shared/temporal';
 import type { LocationFormState } from '@renderer/lib/forms';
+import type { WorkspaceMode } from '@renderer/lib/topBar';
 import { LocationEditor } from './LocationEditor';
 import { LocationList } from './LocationList';
 
 type LocationWorkspaceProps = {
+  activeForm: LocationFormState;
   changedLocationIds: ReadonlySet<number>;
   characters: Character[];
-  createLocationForm: LocationFormState;
-  editLocationForm: LocationFormState;
-  isCreatingLocation: boolean;
-  isDeletingLocation: boolean;
   isLoadingLocationDetails: boolean;
   isLoadingLocations: boolean;
-  isUpdatingLocation: boolean;
+  isSavingLocation: boolean;
   linkedItemCount: number;
   linksSlot?: ReactNode;
   locations: Location[];
-  onCreateLocation: (event: FormEvent<HTMLFormElement>) => void | Promise<void>;
-  onCreateLocationFormChange: (changes: Partial<LocationFormState>) => void;
-  onDeleteLocation: () => void | Promise<void>;
-  onEditLocationFormChange: (changes: Partial<LocationFormState>) => void;
+  mode: WorkspaceMode;
+  onFormChange: (changes: Partial<LocationFormState>) => void;
   onSelectLocation: (id: number) => void;
-  onUpdateLocation: (event: FormEvent<HTMLFormElement>) => void | Promise<void>;
+  onSubmit: () => void | Promise<void>;
   selectedLocation: Location | null;
   selectedLocationCharacterCount: number;
   selectedLocationId: number | null;
@@ -33,24 +29,19 @@ type LocationWorkspaceProps = {
 };
 
 export function LocationWorkspace({
+  activeForm,
   changedLocationIds,
   characters,
-  createLocationForm,
-  editLocationForm,
-  isCreatingLocation,
-  isDeletingLocation,
   isLoadingLocationDetails,
   isLoadingLocations,
-  isUpdatingLocation,
+  isSavingLocation,
   linkedItemCount,
   linksSlot,
   locations,
-  onCreateLocation,
-  onCreateLocationFormChange,
-  onDeleteLocation,
-  onEditLocationFormChange,
+  mode,
+  onFormChange,
   onSelectLocation,
-  onUpdateLocation,
+  onSubmit,
   selectedLocation,
   selectedLocationCharacterCount,
   selectedLocationId,
@@ -69,34 +60,18 @@ export function LocationWorkspace({
       />
 
       <LocationEditor
-        form={editLocationForm}
-        isDeleting={isDeletingLocation}
+        form={activeForm}
         isLoading={isLoadingLocationDetails}
-        isSubmitting={isUpdatingLocation}
+        isSubmitting={isSavingLocation}
         linkedCharacterCount={selectedLocationCharacterCount}
         linkedItemCount={linkedItemCount}
         linksSlot={linksSlot}
         location={selectedLocation}
-        mode="edit"
-        onDelete={onDeleteLocation}
-        onFormChange={onEditLocationFormChange}
-        onSubmit={onUpdateLocation}
+        mode={mode}
+        onFormChange={onFormChange}
+        onSubmit={onSubmit}
         selectedLocationId={selectedLocationId}
         selectedLocationStatus={selectedLocationStatus}
-        tick={tick}
-      />
-
-      <LocationEditor
-        form={createLocationForm}
-        isSubmitting={isCreatingLocation}
-        linkedCharacterCount={0}
-        linkedItemCount={0}
-        location={null}
-        mode="create"
-        onFormChange={onCreateLocationFormChange}
-        onSubmit={onCreateLocation}
-        selectedLocationId={selectedLocationId}
-        selectedLocationStatus="active"
         tick={tick}
       />
     </main>

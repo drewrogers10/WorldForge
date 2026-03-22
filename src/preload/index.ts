@@ -42,6 +42,7 @@ const api: WorldForgeApi = {
   getMap: (input) => invoke('getMap', input),
   createMap: (input) => invoke('createMap', input),
   updateMap: (input) => invoke('updateMap', input),
+  pickMapImage: () => invoke('pickMapImage', undefined),
   listMapFeatures: (input) => invoke('listMapFeatures', input),
   createMapFeature: (input) => invoke('createMapFeature', input),
   updateMapFeatureVersion: (input) => invoke('updateMapFeatureVersion', input),

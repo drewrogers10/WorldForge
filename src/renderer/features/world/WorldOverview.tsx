@@ -3,7 +3,6 @@ import type { Item } from '@shared/item';
 import type { Location } from '@shared/location';
 import { formatWorldTick } from '@shared/temporal';
 import { Panel } from '@renderer/components/Panel';
-import type { WorkspaceView } from '@renderer/lib/forms';
 
 type WorldOverviewProps = {
   changedCharacterIds: ReadonlySet<number>;
@@ -13,7 +12,6 @@ type WorldOverviewProps = {
   isLoading: boolean;
   items: Item[];
   locations: Location[];
-  onViewChange: (view: WorkspaceView) => void;
   overviewDelta: {
     gaps: number;
     items: number;
@@ -60,7 +58,6 @@ export function WorldOverview({
   isLoading,
   items,
   locations,
-  onViewChange,
   overviewDelta,
   tick,
 }: WorldOverviewProps) {
@@ -159,14 +156,14 @@ export function WorldOverview({
 
   return (
     <main className="overview-layout">
-      <Panel className="overview-hero-panel" title="World Overview">
+      <Panel className="overview-hero-panel" title="Project Overview">
         <div className="overview-hero">
           <div className="overview-hero-copy">
             <p className="eyebrow">Current State</p>
-            <h3>Review your world at a glance.</h3>
+            <h3>Review your setting foundation at a glance.</h3>
             <p className="muted">
-              This overview reflects {formatWorldTick(tick)} and highlights what changed
-              since the previous committed position.
+              This overview reflects {formatWorldTick(tick)} and highlights what changed in the
+              world layer while the rest of the story workspace grows around it.
             </p>
           </div>
 
@@ -216,38 +213,6 @@ export function WorldOverview({
               ))}
             </div>
           )}
-        </Panel>
-
-        <Panel className="overview-action-panel" title="Open a Workspace">
-          <div className="overview-action-grid">
-            <OverviewActionCard
-              body="Review characters, see who still needs a place, and update records as needed."
-              cta="Open People"
-              onClick={() => {
-                onViewChange('people');
-              }}
-              stat={`${characters.length} tracked`}
-              title="People"
-            />
-            <OverviewActionCard
-              body="Review places, see what is connected, and spot empty areas that still need detail."
-              cta="Open Places"
-              onClick={() => {
-                onViewChange('places');
-              }}
-              stat={`${locations.length} places`}
-              title="Places"
-            />
-            <OverviewActionCard
-              body="Check ownership, storage, and which items are still unassigned."
-              cta="Open Items"
-              onClick={() => {
-                onViewChange('items');
-              }}
-              stat={`${unassignedItems.length} unassigned`}
-              title="Items"
-            />
-          </div>
         </Panel>
 
         <Panel className="overview-spotlight-panel" title="Most Connected Places">
@@ -300,19 +265,19 @@ export function WorldOverview({
               ))}
             </div>
           ) : (
-            <p className="muted">No records yet. Start with a person or place.</p>
+            <p className="muted">No world records yet. Start with a person or place.</p>
           )}
         </Panel>
 
         <Panel className="overview-roadmap-panel" title="Workspace Status">
           <div className="overview-roadmap-grid">
             <RoadmapCard
-              description="People, places, items, maps, and events are available now."
+              description="Overview, World Elements, Theories, and Writing all have dedicated destinations. People, places, items, maps, and events are editable now."
               title="Available Now"
             />
             <RoadmapCard
-              description="Powers and organizations are listed in navigation but still need full editors."
-              title="Still To Build"
+              description="Powers, organizations, manuscript, plot, and writing ideas now have dedicated homes, with fuller editors still to come."
+              title="Growing Next"
             />
           </div>
         </Panel>
@@ -335,35 +300,6 @@ function OverviewMetric({ delta, label, tone, value }: OverviewMetricProps) {
       <strong className="overview-metric-value">{value}</strong>
       {delta ? <span className="overview-metric-delta">Since previous position: {delta}</span> : null}
     </div>
-  );
-}
-
-type OverviewActionCardProps = {
-  body: string;
-  cta: string;
-  onClick: () => void;
-  stat: string;
-  title: string;
-};
-
-function OverviewActionCard({
-  body,
-  cta,
-  onClick,
-  stat,
-  title,
-}: OverviewActionCardProps) {
-  return (
-    <article className="linked-card overview-action-card">
-      <div className="entity-list-heading">
-        <p className="card-title">{title}</p>
-        <span className="pill small subtle">{stat}</span>
-      </div>
-      <p className="muted helper-text">{body}</p>
-      <button className="secondary-button" onClick={onClick} type="button">
-        {cta}
-      </button>
-    </article>
   );
 }
 

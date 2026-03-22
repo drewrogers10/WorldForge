@@ -1,23 +1,22 @@
-import type { FormEvent, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import type { Location } from '@shared/location';
 import { formatWorldTick, type TemporalDetailStatus } from '@shared/temporal';
 import { Panel } from '@renderer/components/Panel';
 import { TemporalInput } from '@renderer/components/TemporalInput';
 import type { LocationFormState } from '@renderer/lib/forms';
+import type { WorkspaceMode } from '@renderer/lib/topBar';
 
 type LocationEditorProps = {
   form: LocationFormState;
-  isDeleting?: boolean;
   isLoading?: boolean;
   isSubmitting: boolean;
   linkedCharacterCount: number;
   linkedItemCount: number;
   linksSlot?: ReactNode;
   location: Location | null;
-  mode: 'create' | 'edit';
-  onDelete?: () => void | Promise<void>;
+  mode: WorkspaceMode;
   onFormChange: (changes: Partial<LocationFormState>) => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onSubmit: () => void | Promise<void>;
   selectedLocationId: number | null;
   selectedLocationStatus: TemporalDetailStatus;
   tick: number;
@@ -38,7 +37,6 @@ function describeLocationStatus(status: TemporalDetailStatus, tick: number): str
 
 export function LocationEditor({
   form,
-  isDeleting = false,
   isLoading = false,
   isSubmitting,
   linkedCharacterCount,
@@ -46,13 +44,14 @@ export function LocationEditor({
   linksSlot,
   location,
   mode,
-  onDelete,
   onFormChange,
   onSubmit,
   selectedLocationId,
   selectedLocationStatus,
   tick,
 }: LocationEditorProps) {
+  const isCreateMode = mode === 'create';
+  const isEditMode = mode === 'edit';
   const effectiveTickField = (
     <TemporalInput
       onChange={(effectiveTick) => {
@@ -62,10 +61,17 @@ export function LocationEditor({
     />
   );
 
-  if (mode === 'create') {
+  if (isCreateMode) {
     return (
       <Panel title="Create Place">
-        <form className="form" onSubmit={onSubmit}>
+        <form
+          aria-busy={isSubmitting}
+          className="form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void onSubmit();
+          }}
+        >
           <label>
             <span>Name</span>
             <input
@@ -94,9 +100,9 @@ export function LocationEditor({
 
           {effectiveTickField}
 
-          <button disabled={isSubmitting} type="submit">
-            {isSubmitting ? 'Creating...' : 'Create Place'}
-          </button>
+          <p className="muted helper-text">
+            Use the top bar to save or cancel this new place.
+          </p>
         </form>
       </Panel>
     );
@@ -137,49 +143,50 @@ export function LocationEditor({
             </div>
           </dl>
 
-          <form className="form" onSubmit={onSubmit}>
-            <label>
-              <span>Name</span>
-              <input
-                name="name"
-                onChange={(event) => {
-                  onFormChange({ name: event.target.value });
-                }}
-                required
-                value={form.name}
-              />
-            </label>
+          {isEditMode ? (
+            <form
+              aria-busy={isSubmitting}
+              className="form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                void onSubmit();
+              }}
+            >
+              <label>
+                <span>Name</span>
+                <input
+                  name="name"
+                  onChange={(event) => {
+                    onFormChange({ name: event.target.value });
+                  }}
+                  required
+                  value={form.name}
+                />
+              </label>
 
-            <label>
-              <span>Summary</span>
-              <textarea
-                name="summary"
-                onChange={(event) => {
-                  onFormChange({ summary: event.target.value });
-                }}
-                rows={8}
-                value={form.summary}
-              />
-            </label>
+              <label>
+                <span>Summary</span>
+                <textarea
+                  name="summary"
+                  onChange={(event) => {
+                    onFormChange({ summary: event.target.value });
+                  }}
+                  rows={8}
+                  value={form.summary}
+                />
+              </label>
 
-            {effectiveTickField}
+              {effectiveTickField}
 
-            <div className="button-row">
-              <button disabled={isSubmitting} type="submit">
-                {isSubmitting ? 'Saving...' : 'Save Changes'}
-              </button>
-              <button
-                className="danger-button"
-                disabled={isDeleting || isSubmitting}
-                onClick={() => {
-                  void onDelete?.();
-                }}
-                type="button"
-              >
-                {isDeleting ? 'Ending...' : 'End Place'}
-              </button>
-            </div>
-          </form>
+              <p className="muted helper-text">
+                Use the top bar to save, cancel, or end this place.
+              </p>
+            </form>
+          ) : (
+            <p className="muted helper-text">
+              Use the top bar to edit or end this place.
+            </p>
+          )}
 
           {linksSlot}
         </>

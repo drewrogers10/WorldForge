@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildSidebarTreeNodes,
-  isSidebarFolderExpanded,
+  isSidebarNodeExpanded,
   resolveSidebarSelection,
   type SidebarDataSnapshot,
-  type SidebarFolderExpansionState,
+  type SidebarExpansionState,
+  type SidebarSectionNode,
   type SidebarSelectionState,
-  type SidebarTreeDisabledFolderNode,
-  type SidebarTreeFolderNode,
+  type SidebarWorkspaceNode,
 } from './sidebarTree';
 
 function createSidebarData(): SidebarDataSnapshot {
@@ -68,6 +68,7 @@ function createSidebarData(): SidebarDataSnapshot {
         id: 9,
         name: 'North Atlas',
         displayKind: 'vector',
+        themePreset: 'parchment',
         focusLocationId: null,
         focusLocation: null,
         parentMapId: null,
@@ -82,6 +83,7 @@ function createSidebarData(): SidebarDataSnapshot {
         id: 8,
         name: 'Archive Sheet',
         displayKind: 'image',
+        themePreset: 'terrain',
         focusLocationId: null,
         focusLocation: null,
         parentMapId: null,
@@ -130,66 +132,37 @@ function createSelectionState(): SidebarSelectionState {
   };
 }
 
-function getFolderNode(
+function getSectionNode(
   nodes: ReturnType<typeof buildSidebarTreeNodes>,
-  id: SidebarTreeFolderNode['id'],
-): SidebarTreeFolderNode {
+  id: SidebarSectionNode['id'],
+): SidebarSectionNode {
   const node = nodes.find(
-    (current): current is SidebarTreeFolderNode =>
-      current.type === 'folder' && current.id === id,
+    (current): current is SidebarSectionNode =>
+      current.type === 'section' && current.id === id,
   );
 
   if (!node) {
-    throw new Error(`Expected folder node ${id}.`);
+    throw new Error(`Expected section node ${id}.`);
   }
 
   return node;
 }
 
-function getDisabledFolderNode(
-  nodes: ReturnType<typeof buildSidebarTreeNodes>,
-  id: SidebarTreeDisabledFolderNode['id'],
-): SidebarTreeDisabledFolderNode {
-  const node = nodes.find(
-    (current): current is SidebarTreeDisabledFolderNode =>
-      current.type === 'disabled-folder' && current.id === id,
-  );
+function getWorkspaceNode(
+  section: SidebarSectionNode,
+  id: SidebarWorkspaceNode['id'],
+): SidebarWorkspaceNode {
+  const node = section.children.find((child) => child.id === id);
 
   if (!node) {
-    throw new Error(`Expected disabled folder node ${id}.`);
+    throw new Error(`Expected workspace node ${id}.`);
   }
 
   return node;
 }
 
 describe('buildSidebarTreeNodes', () => {
-  it('builds implemented folders with sorted children and counts', () => {
-    const nodes = buildSidebarTreeNodes({
-      activeView: 'people',
-      data: createSidebarData(),
-      expansionState: {},
-      selectionState: createSelectionState(),
-    });
-
-    const peopleFolder = getFolderNode(nodes, 'people');
-    const mapsFolder = getFolderNode(nodes, 'maps');
-    const eventsFolder = getFolderNode(nodes, 'events');
-
-    expect(peopleFolder?.count).toBe(2);
-    expect(peopleFolder?.children.map((child) => child.label)).toEqual(['Ada', 'Zed']);
-    expect(mapsFolder?.children.map((child) => child.label)).toEqual([
-      'Archive Sheet',
-      'North Atlas',
-    ]);
-    expect(eventsFolder?.children.map((child) => child.label)).toEqual([
-      'Ashfall',
-      'Founding Feast',
-    ]);
-    expect(peopleFolder?.children[0]?.isCurrent).toBe(true);
-    expect(peopleFolder?.isExpanded).toBe(true);
-  });
-
-  it('emits disabled placeholder folders without children', () => {
+  it('builds the top-level section order and nested child workspaces', () => {
     const nodes = buildSidebarTreeNodes({
       activeView: 'overview',
       data: createSidebarData(),
@@ -197,19 +170,108 @@ describe('buildSidebarTreeNodes', () => {
       selectionState: createSelectionState(),
     });
 
-    const powersFolder = getDisabledFolderNode(nodes, 'powers');
+    expect(nodes.map((node) => node.label)).toEqual([
+      'Overview',
+      'World Elements',
+      'Theories',
+      'Writing',
+    ]);
 
-    expect(powersFolder).toEqual({
-      type: 'disabled-folder',
-      id: 'powers',
-      label: 'Powers',
+    const worldElements = getSectionNode(nodes, 'world-elements');
+    const writing = getSectionNode(nodes, 'writing');
+    const theories = getSectionNode(nodes, 'theories');
+
+    expect(worldElements.isExpandable).toBe(true);
+    expect(worldElements.count).toBe(7);
+    expect(worldElements.children.map((child) => child.label)).toEqual([
+      'People',
+      'Places',
+      'Maps',
+      'Items',
+      'Events',
+      'Powers',
+      'Organizations',
+    ]);
+
+    expect(writing.isExpandable).toBe(true);
+    expect(writing.count).toBe(3);
+    expect(writing.children.map((child) => child.label)).toEqual([
+      'Manuscript',
+      'Plot',
+      'Writing Ideas',
+    ]);
+
+    expect(theories.isExpandable).toBe(false);
+    expect(theories.count).toBeNull();
+    expect(theories.children).toEqual([]);
+  });
+
+  it('keeps record workspaces sorted and highlighted under world elements', () => {
+    const nodes = buildSidebarTreeNodes({
+      activeView: 'people',
+      data: createSidebarData(),
+      expansionState: {},
+      selectionState: createSelectionState(),
     });
-    expect(resolveSidebarSelection(powersFolder)).toBeNull();
+
+    const worldElements = getSectionNode(nodes, 'world-elements');
+    const peopleWorkspace = getWorkspaceNode(worldElements, 'people');
+    const mapsWorkspace = getWorkspaceNode(worldElements, 'maps');
+    const eventsWorkspace = getWorkspaceNode(worldElements, 'events');
+
+    expect(worldElements.isCurrent).toBe(true);
+    expect(worldElements.isExpanded).toBe(true);
+
+    expect(peopleWorkspace.isCurrent).toBe(true);
+    expect(peopleWorkspace.isExpanded).toBe(true);
+    expect(peopleWorkspace.children.map((child) => child.label)).toEqual(['Ada', 'Zed']);
+    expect(peopleWorkspace.children[0]?.isCurrent).toBe(true);
+
+    expect(mapsWorkspace.children.map((child) => child.label)).toEqual([
+      'Archive Sheet',
+      'North Atlas',
+    ]);
+    expect(eventsWorkspace.children.map((child) => child.label)).toEqual([
+      'Ashfall',
+      'Founding Feast',
+    ]);
+  });
+
+  it('resolves active leaf workspaces and section routes without disabled placeholders', () => {
+    const nodes = buildSidebarTreeNodes({
+      activeView: 'writing',
+      data: createSidebarData(),
+      expansionState: {},
+      selectionState: createSelectionState(),
+    });
+
+    const worldElements = getSectionNode(nodes, 'world-elements');
+    const writing = getSectionNode(nodes, 'writing');
+    const theories = getSectionNode(nodes, 'theories');
+    const powersWorkspace = getWorkspaceNode(worldElements, 'powers');
+    const organizationsWorkspace = getWorkspaceNode(worldElements, 'organizations');
+
+    expect(resolveSidebarSelection(theories)).toEqual({
+      route: 'theories',
+      entitySelection: null,
+    });
+    expect(resolveSidebarSelection(writing)).toEqual({
+      route: 'writing',
+      entitySelection: null,
+    });
+    expect(resolveSidebarSelection(powersWorkspace)).toEqual({
+      route: 'powers',
+      entitySelection: null,
+    });
+    expect(resolveSidebarSelection(organizationsWorkspace)).toEqual({
+      route: 'organizations',
+      entitySelection: null,
+    });
   });
 });
 
 describe('resolveSidebarSelection', () => {
-  it('maps child records to the correct route and entity selection', () => {
+  it('maps record nodes to the correct route and entity selection', () => {
     const nodes = buildSidebarTreeNodes({
       activeView: 'maps',
       data: createSidebarData(),
@@ -217,14 +279,15 @@ describe('resolveSidebarSelection', () => {
       selectionState: createSelectionState(),
     });
 
-    const mapFolder = getFolderNode(nodes, 'maps');
-    const selectedMap = mapFolder.children.find((child) => child.label === 'Archive Sheet');
+    const worldElements = getSectionNode(nodes, 'world-elements');
+    const mapWorkspace = getWorkspaceNode(worldElements, 'maps');
+    const selectedMap = mapWorkspace.children.find((child) => child.label === 'Archive Sheet');
 
     if (!selectedMap) {
       throw new Error('Expected selected map node.');
     }
 
-    expect(resolveSidebarSelection(mapFolder)).toEqual({
+    expect(resolveSidebarSelection(mapWorkspace)).toEqual({
       route: 'maps',
       entitySelection: null,
     });
@@ -238,15 +301,15 @@ describe('resolveSidebarSelection', () => {
   });
 });
 
-describe('isSidebarFolderExpanded', () => {
-  it('auto-expands the active workspace without discarding same-session manual toggles', () => {
-    const expansionState: SidebarFolderExpansionState = {
-      maps: true,
+describe('isSidebarNodeExpanded', () => {
+  it('auto-expands the active section and preserves manual toggles', () => {
+    const expansionState: SidebarExpansionState = {
+      writing: true,
       items: false,
     };
 
-    expect(isSidebarFolderExpanded('people', 'people', expansionState)).toBe(true);
-    expect(isSidebarFolderExpanded('maps', 'people', expansionState)).toBe(true);
-    expect(isSidebarFolderExpanded('items', 'people', expansionState)).toBe(false);
+    expect(isSidebarNodeExpanded('world-elements', 'people', expansionState)).toBe(true);
+    expect(isSidebarNodeExpanded('writing', 'people', expansionState)).toBe(true);
+    expect(isSidebarNodeExpanded('items', 'people', expansionState)).toBe(false);
   });
 });

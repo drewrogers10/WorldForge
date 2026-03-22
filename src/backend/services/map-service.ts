@@ -47,6 +47,7 @@ function toMap(record: {
   id: number;
   name: string;
   displayKind: 'vector' | 'image';
+  themePreset: 'parchment' | 'terrain' | 'political';
   focusLocationId: number | null;
   focusLocationName: string | null;
   parentMapId: number | null;
@@ -62,6 +63,7 @@ function toMap(record: {
     id: record.id,
     name: record.name,
     displayKind: record.displayKind,
+    themePreset: record.themePreset,
     focusLocationId: record.focusLocationId,
     focusLocation:
       record.focusLocationId !== null && record.focusLocationName
@@ -91,6 +93,14 @@ function toMapFeature(record: {
   id: number;
   mapId: number;
   featureKind: 'marker' | 'path' | 'polygon' | 'border';
+  featureRole:
+    | 'custom'
+    | 'settlement'
+    | 'river'
+    | 'road'
+    | 'mountainRange'
+    | 'forest'
+    | 'regionBorder';
   locationId: number | null;
   locationName: string | null;
   eventId: number | null;
@@ -112,6 +122,7 @@ function toMapFeature(record: {
     id: record.id,
     mapId: record.mapId,
     featureKind: record.featureKind,
+    featureRole: record.featureRole,
     locationId: record.locationId,
     location:
       record.locationId !== null && record.locationName
@@ -184,6 +195,7 @@ function normalizeMapFields(input: CreateMapInput | UpdateMapInput) {
   return {
     name: input.name.trim(),
     displayKind: input.displayKind,
+    themePreset: input.themePreset,
     focusLocationId: input.focusLocationId,
     parentMapId: input.parentMapId,
     imageAssetPath: normalizedImageAssetPath,
@@ -294,6 +306,37 @@ function serializeStyle(style: MapStyle | null): string | null {
   return style ? JSON.stringify(style) : null;
 }
 
+function assertPointWithinMap(
+  point: { x: number; y: number },
+  map: {
+    id: number;
+    canvasWidth: number;
+    canvasHeight: number;
+  },
+  label: string,
+): void {
+  if (point.x < 0 || point.x > map.canvasWidth || point.y < 0 || point.y > map.canvasHeight) {
+    throw new Error(
+      `${label} must be within map ${map.id} bounds 0..${map.canvasWidth} by 0..${map.canvasHeight}.`,
+    );
+  }
+}
+
+function assertGeometryWithinMap(
+  geometry: MapGeometry,
+  map: {
+    id: number;
+    canvasWidth: number;
+    canvasHeight: number;
+  },
+): void {
+  const points = geometry.type === 'marker' ? [geometry.point] : geometry.points;
+
+  points.forEach((point, index) => {
+    assertPointWithinMap(point, map, `Geometry point ${index + 1}`);
+  });
+}
+
 export function createMapService(db: AppDatabase) {
   return {
     listMaps(): MapRecord[] {
@@ -344,6 +387,8 @@ export function createMapService(db: AppDatabase) {
     },
     createMapFeature(input: CreateMapFeatureInput): MapFeature {
       assertMapFeatureReferences(db, input);
+      const map = assertMapExists(db, input.mapId);
+      assertGeometryWithinMap(input.geometry, map);
       const systemNow = Date.now();
 
       const transaction = db.$client.transaction(() => {
@@ -364,17 +409,19 @@ export function createMapService(db: AppDatabase) {
                 valid_from,
                 valid_to,
                 label,
+                feature_role,
                 geometry_json,
                 style_json,
                 source_event_id,
                 created_at
-              ) VALUES (?, ?, NULL, ?, ?, ?, ?, ?)
+              ) VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?)
             `,
           )
           .run(
             feature.id,
             input.effectiveTick,
             input.label.trim(),
+            input.featureRole,
             serializeGeometry(input.geometry),
             serializeStyle(input.style),
             input.sourceEventId,
@@ -402,12 +449,14 @@ export function createMapService(db: AppDatabase) {
     },
     updateMapFeatureVersion(input: UpdateMapFeatureVersionInput): MapFeature {
       const feature = assertMapFeatureExists(db, input.id);
+      const map = assertMapExists(db, feature.mapId);
       assertMapFeatureReferences(db, {
         mapId: feature.mapId,
         locationId: input.locationId,
         eventId: input.eventId,
         sourceEventId: input.sourceEventId,
       });
+      assertGeometryWithinMap(input.geometry, map);
 
       if (input.featureKind !== feature.featureKind) {
         throw new Error('Feature kind cannot change after creation.');
@@ -432,12 +481,13 @@ export function createMapService(db: AppDatabase) {
             .prepare(
               `
                 UPDATE map_feature_versions
-                SET label = ?, geometry_json = ?, style_json = ?, source_event_id = ?, created_at = ?
+                SET label = ?, feature_role = ?, geometry_json = ?, style_json = ?, source_event_id = ?, created_at = ?
                 WHERE id = ?
               `,
             )
             .run(
               input.label.trim(),
+              input.featureRole,
               serializeGeometry(input.geometry),
               serializeStyle(input.style),
               input.sourceEventId,
@@ -460,20 +510,22 @@ export function createMapService(db: AppDatabase) {
               `
                 INSERT INTO map_feature_versions (
                   feature_id,
-                  valid_from,
-                  valid_to,
-                  label,
-                  geometry_json,
-                  style_json,
-                  source_event_id,
-                  created_at
-                ) VALUES (?, ?, NULL, ?, ?, ?, ?, ?)
+                valid_from,
+                valid_to,
+                label,
+                feature_role,
+                geometry_json,
+                style_json,
+                source_event_id,
+                created_at
+              ) VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?)
               `,
             )
             .run(
               input.id,
               input.effectiveTick,
               input.label.trim(),
+              input.featureRole,
               serializeGeometry(input.geometry),
               serializeStyle(input.style),
               input.sourceEventId,
@@ -528,8 +580,9 @@ export function createMapService(db: AppDatabase) {
       return listMapAnchorRows(db, input.mapId).map(toMapAnchor);
     },
     upsertMapAnchor(input: UpsertMapAnchorInput): MapAnchor {
-      assertMapExists(db, input.mapId);
+      const map = assertMapExists(db, input.mapId);
       assertLocationExists(db, input.locationId);
+      assertPointWithinMap(input, map, 'Anchor point');
       const systemNow = Date.now();
 
       return toMapAnchor(

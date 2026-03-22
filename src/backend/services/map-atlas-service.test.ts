@@ -40,6 +40,7 @@ describe('map atlas services', () => {
     const worldMap = mapService.createMap({
       name: 'World Atlas',
       displayKind: 'vector',
+      themePreset: 'parchment',
       focusLocationId: null,
       parentMapId: null,
       imageAssetPath: null,
@@ -49,6 +50,7 @@ describe('map atlas services', () => {
     const regionMap = mapService.createMap({
       name: 'Harbor Reach Region',
       displayKind: 'image',
+      themePreset: 'terrain',
       focusLocationId: harbor.id,
       parentMapId: worldMap.id,
       imageAssetPath: '/tmp/harbor-reach.png',
@@ -59,6 +61,7 @@ describe('map atlas services', () => {
     const createdFeature = mapService.createMapFeature({
       mapId: worldMap.id,
       featureKind: 'border',
+      featureRole: 'regionBorder',
       locationId: harbor.id,
       eventId: treaty.id,
       label: 'Old Coast Border',
@@ -83,6 +86,7 @@ describe('map atlas services', () => {
       id: createdFeature.id,
       mapId: worldMap.id,
       featureKind: 'border',
+      featureRole: 'regionBorder',
       locationId: harbor.id,
       eventId: treaty.id,
       label: 'New Coast Border',
@@ -108,6 +112,7 @@ describe('map atlas services', () => {
     ).toMatchObject({
       id: createdFeature.id,
       label: 'Old Coast Border',
+      featureRole: 'regionBorder',
       validFrom: 20,
       validTo: 40,
       locationId: harbor.id,
@@ -118,6 +123,7 @@ describe('map atlas services', () => {
     ).toMatchObject({
       id: createdFeature.id,
       label: 'New Coast Border',
+      featureRole: 'regionBorder',
       validFrom: 40,
       validTo: null,
     });
@@ -152,6 +158,138 @@ describe('map atlas services', () => {
       x: 5200,
       y: 4700,
     });
+  });
+
+  it('persists map theme presets, feature roles, and validates actual map bounds', () => {
+    const locationService = createLocationService(context!.db, context!.storageCoordinator);
+    const mapService = createMapService(context!.db);
+
+    const forestKeep = locationService.createLocation({
+      name: 'Forest Keep',
+      summary: 'A fortress in the green sea.',
+      effectiveTick: 5,
+    });
+
+    const regionMap = mapService.createMap({
+      name: 'Emerald March',
+      displayKind: 'vector',
+      themePreset: 'terrain',
+      focusLocationId: forestKeep.id,
+      parentMapId: null,
+      imageAssetPath: null,
+      canvasWidth: 1600,
+      canvasHeight: 900,
+    });
+
+    expect(mapService.getMap({ id: regionMap.id })).toMatchObject({
+      id: regionMap.id,
+      themePreset: 'terrain',
+      canvasWidth: 1600,
+      canvasHeight: 900,
+    });
+
+    const river = mapService.createMapFeature({
+      mapId: regionMap.id,
+      featureKind: 'path',
+      featureRole: 'river',
+      locationId: forestKeep.id,
+      eventId: null,
+      label: 'Silver Run',
+      geometry: {
+        type: 'path',
+        points: [
+          { x: 100, y: 100 },
+          { x: 900, y: 500 },
+          { x: 1500, y: 820 },
+        ],
+      },
+      style: {
+        stroke: '#4f8ab5',
+        strokeWidth: 30,
+        opacity: 0.95,
+      },
+      sourceEventId: null,
+      effectiveTick: 10,
+    });
+
+    expect(river).toMatchObject({
+      featureKind: 'path',
+      featureRole: 'river',
+    });
+
+    mapService.updateMapFeatureVersion({
+      id: river.id,
+      mapId: regionMap.id,
+      featureKind: 'path',
+      featureRole: 'road',
+      locationId: forestKeep.id,
+      eventId: null,
+      label: 'Silver Road',
+      geometry: {
+        type: 'path',
+        points: [
+          { x: 120, y: 120 },
+          { x: 880, y: 460 },
+          { x: 1480, y: 780 },
+        ],
+      },
+      style: {
+        stroke: '#9b7a4e',
+        strokeWidth: 28,
+        opacity: 0.92,
+      },
+      sourceEventId: null,
+      effectiveTick: 22,
+    });
+
+    expect(
+      mapService.listMapFeatures({ mapId: regionMap.id, asOfTick: 12 })[0],
+    ).toMatchObject({
+      id: river.id,
+      featureRole: 'river',
+      validTo: 22,
+    });
+    expect(
+      mapService.listMapFeatures({ mapId: regionMap.id, asOfTick: 30 })[0],
+    ).toMatchObject({
+      id: river.id,
+      featureRole: 'road',
+      validFrom: 22,
+    });
+
+    expect(() =>
+      mapService.createMapFeature({
+        mapId: regionMap.id,
+        featureKind: 'marker',
+        featureRole: 'settlement',
+        locationId: forestKeep.id,
+        eventId: null,
+        label: 'Broken Point',
+        geometry: {
+          type: 'marker',
+          point: { x: 1700, y: 100 },
+        },
+        style: null,
+        sourceEventId: null,
+        effectiveTick: 14,
+      }),
+    ).toThrow(/bounds/i);
+
+    mapService.upsertMapAnchor({
+      mapId: regionMap.id,
+      locationId: forestKeep.id,
+      x: 1500,
+      y: 820,
+    });
+
+    expect(() =>
+      mapService.upsertMapAnchor({
+        mapId: regionMap.id,
+        locationId: forestKeep.id,
+        x: 1601,
+        y: 820,
+      }),
+    ).toThrow(/bounds/i);
   });
 
   it('supports events as chronology rows and entity file links', () => {

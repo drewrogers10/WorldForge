@@ -1,16 +1,27 @@
-import { EntityWorkspacePlaceholder } from './EntityWorkspacePlaceholder';
+import { WorkspacePlaceholderPage } from '@renderer/features/sections/WorkspacePlaceholderPage';
 
 export function OrganizationsPage() {
   return (
-    <EntityWorkspacePlaceholder
-      description="Track factions, houses, guilds, governments, and every other group that influences the setting."
-      focusAreas={[
-        'Leaders, members, and rivalries',
-        'Territory, resources, and responsibilities',
-        'Goals, allegiances, and historical impact',
+    <WorkspacePlaceholderPage
+      cards={[
+        {
+          title: 'Tracks',
+          items: [
+            'Factions, houses, guilds, governments, and other institutions',
+            'Leaders, members, rivalries, and obligations',
+            'Territory, resources, goals, and historical influence',
+          ],
+        },
+        {
+          title: 'Boundary',
+          body: 'Organizations belong in World Elements because they exist inside the canon setting and can directly affect people, places, items, and events.',
+        },
+        {
+          title: 'Current Coverage',
+          body: 'The organizations workspace is active in navigation now, but its dedicated editor still needs to be built.',
+        },
       ]}
-      implementationNote="The dedicated organizations editor still needs to be built, but the route now stays inside the app shell so you can move elsewhere."
-      scopeNote="For now, record related people, places, items, and events in the finished workspaces."
+      description="Organizations tracks the groups that shape the setting, from major governments to local factions and institutions."
       title="Organizations"
     />
   );

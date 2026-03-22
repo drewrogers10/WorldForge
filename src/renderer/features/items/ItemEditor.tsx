@@ -6,19 +6,18 @@ import { formatWorldTick, type TemporalDetailStatus } from '@shared/temporal';
 import { Panel } from '@renderer/components/Panel';
 import { TemporalInput } from '@renderer/components/TemporalInput';
 import { toNullableId, toSelectValue, type ItemFormState } from '@renderer/lib/forms';
+import type { WorkspaceMode } from '@renderer/lib/topBar';
 
 type ItemEditorProps = {
   characters: Character[];
   form: ItemFormState;
-  isDeleting?: boolean;
   isLoading?: boolean;
   isSubmitting: boolean;
   item: Item | null;
   locations: Location[];
-  mode: 'create' | 'edit';
-  onDelete?: () => void | Promise<void>;
+  mode: WorkspaceMode;
   onFormChange: (changes: Partial<ItemFormState>) => void;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void | Promise<void>;
   selectedItemId: number | null;
   selectedItemStatus: TemporalDetailStatus;
   tick: number;
@@ -70,13 +69,11 @@ function describeItemStatus(status: TemporalDetailStatus, tick: number): string 
 export function ItemEditor({
   characters,
   form,
-  isDeleting = false,
   isLoading = false,
   isSubmitting,
   item,
   locations,
   mode,
-  onDelete,
   onFormChange,
   onSubmit,
   selectedItemId,
@@ -84,10 +81,19 @@ export function ItemEditor({
   tick,
 }: ItemEditorProps) {
   const assignmentMode = getAssignmentMode(form);
-  const title = mode === 'create' ? 'Create Item' : 'Selected Item';
+  const isCreateMode = mode === 'create';
+  const isEditMode = mode === 'edit';
+  const title = isCreateMode ? 'Create Item' : 'Selected Item';
 
   const formBody = (
-    <form className="form" onSubmit={onSubmit}>
+    <form
+      aria-busy={isSubmitting}
+      className="form"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void onSubmit(event);
+      }}
+    >
       <label>
         <span>Name</span>
         <input
@@ -225,31 +231,19 @@ export function ItemEditor({
         value={form.effectiveTick}
       />
 
-      {mode === 'edit' ? (
-        <div className="button-row">
-          <button disabled={isSubmitting} type="submit">
-            {isSubmitting ? 'Saving...' : 'Save Changes'}
-          </button>
-          <button
-            className="danger-button"
-            disabled={isDeleting || isSubmitting}
-            onClick={() => {
-              void onDelete?.();
-            }}
-            type="button"
-          >
-            {isDeleting ? 'Ending...' : 'End Item'}
-          </button>
-        </div>
+      {isEditMode ? (
+        <p className="muted helper-text">
+          Use the top bar to save, cancel, or end this item.
+        </p>
       ) : (
-        <button disabled={isSubmitting} type="submit">
-          {isSubmitting ? 'Creating...' : 'Create Item'}
-        </button>
+        <p className="muted helper-text">
+          Use the top bar to save or cancel this new item.
+        </p>
       )}
     </form>
   );
 
-  if (mode === 'create') {
+  if (isCreateMode) {
     return <Panel title={title}>{formBody}</Panel>;
   }
 

@@ -3,8 +3,6 @@
   --shell-left-width: clamp(18rem, 22vw, 20.5rem);
   --shell-left-width-active: var(--shell-left-width);
   --shell-right-width-collapsed: 4.75rem;
-  --shell-right-width-expanded: clamp(16rem, 22vw, 22rem);
-  --shell-right-width-current: var(--shell-right-width-collapsed);
   --shell-main-inline-padding: clamp(1rem, 2vw, 1.75rem);
   --shell-border: var(--color-panel-border);
   --shell-surface: var(--color-panel-bg);
@@ -13,7 +11,7 @@
   height: 100dvh;
   min-height: 0;
   display: grid;
-  grid-template-columns: var(--shell-left-width-active) minmax(0, 1fr) var(--shell-right-width-current);
+  grid-template-columns: var(--shell-left-width-active) minmax(0, 1fr) var(--shell-right-width-collapsed);
   grid-template-rows: auto minmax(0, 1fr);
   grid-template-areas:
     "sidebar topbar timeline"
@@ -25,14 +23,10 @@
 
 .app-shell.sidebar-collapsed {
   --shell-left-width-active: 0px;
-  grid-template-columns: minmax(0, 1fr) var(--shell-right-width-current);
+  grid-template-columns: minmax(0, 1fr) var(--shell-right-width-collapsed);
   grid-template-areas:
     "topbar topbar"
     "main timeline";
-}
-
-.app-shell.timeline-expanded {
-  --shell-right-width-current: var(--shell-right-width-expanded);
 }
 
 .shell-scrim {
@@ -153,58 +147,41 @@
   min-height: 0;
 }
 
-.function-bar-nav {
+.function-bar {
   display: flex;
+  align-items: center;
   justify-content: flex-start;
+  gap: 0.85rem 1rem;
+  flex-wrap: wrap;
+}
+
+.function-bar-trailing {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.55rem 0.75rem;
   flex: 1 1 100%;
   flex-wrap: wrap;
-  gap: 0.55rem;
-  min-width: 0;
-  overflow: visible;
-  padding-bottom: 0.1rem;
-  scrollbar-width: thin;
 }
 
-.function-bar-link {
-  display: grid;
-  flex: 1 1 7.25rem;
-  gap: 0.08rem;
-  min-width: min(100%, 7.25rem);
+.function-bar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+}
+
+.function-bar-meta-pill {
+  display: inline-flex;
+  align-items: center;
   border: 1px solid var(--color-panel-border);
   border-radius: 999px;
-  color: var(--color-text);
-  background: transparent;
-  padding: 0.68rem 0.85rem 0.72rem;
-  text-align: left;
-  transition:
-    background 120ms ease,
-    border-color 120ms ease;
-}
-
-.function-bar-link:hover {
-  background: rgba(128, 128, 128, 0.1);
-}
-
-.function-bar-link.active {
-  border-color: var(--color-accent);
-  color: var(--color-bg);
-  background: var(--color-accent);
-}
-
-.function-bar-link-label {
-  font-size: 0.92rem;
-  font-weight: 700;
-}
-
-.function-bar-link-group {
   color: var(--color-muted);
-  font-size: 0.7rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.function-bar-link.active .function-bar-link-group {
-  color: var(--color-bg);
+  background: rgba(128, 128, 128, 0.08);
+  padding: 0.38rem 0.7rem;
+  font-size: 0.8rem;
+  white-space: nowrap;
 }
 
 .app-body {
@@ -234,8 +211,7 @@
 
 @media (max-width: 1180px) {
   .app-shell,
-  .app-shell.sidebar-collapsed,
-  .app-shell.timeline-expanded {
+  .app-shell.sidebar-collapsed {
     --shell-left-width-active: 0px;
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
@@ -287,24 +263,20 @@
     width: 100%;
   }
 
-  .function-bar-nav {
+  .function-bar-trailing {
     width: 100%;
     justify-content: flex-start;
   }
 
-  .function-bar-link {
-    flex-basis: 8rem;
-  }
-
   .timeline-slot {
     position: fixed;
-    top: calc(var(--shell-top-height) + 0.75rem);
+    top: auto;
     right: 0.75rem;
     bottom: 0.75rem;
+    width: var(--shell-right-width-collapsed);
     height: auto;
-    width: var(--shell-right-width-current);
     z-index: 45;
-    transition: width 220ms ease;
+    overflow: visible;
   }
 
   .app-main {
@@ -319,8 +291,7 @@
 
 @media (max-width: 720px) {
   .app-shell,
-  .app-shell.sidebar-collapsed,
-  .app-shell.timeline-expanded {
+  .app-shell.sidebar-collapsed {
     grid-template-columns: 1fr;
     grid-template-areas:
       "topbar"
@@ -332,7 +303,6 @@
   }
 
   .timeline-slot {
-    top: calc(var(--shell-top-height) + 0.5rem);
     right: 0.5rem;
     bottom: 0.5rem;
   }
@@ -352,13 +322,9 @@
     align-items: stretch;
   }
 
-  .function-bar-nav {
+  .function-bar-trailing,
+  .function-bar-actions {
     justify-content: flex-start;
-  }
-
-  .function-bar-link {
-    flex-basis: calc(50% - 0.3rem);
-    min-width: 0;
   }
 
   .sidebar-slot {

@@ -5,14 +5,23 @@ import type { Location } from '@shared/location';
 import type { MapRecord } from '@shared/map';
 import { workspaceOptions, type WorkspaceView } from './forms';
 
-export type SidebarImplementedView = Extract<
+export type SidebarSectionView = Extract<WorkspaceView, 'world-elements' | 'theories' | 'writing'>;
+export type SidebarSectionWithChildrenView = Extract<
+  SidebarSectionView,
+  'world-elements' | 'writing'
+>;
+export type SidebarRecordWorkspaceView = Extract<
   WorkspaceView,
   'people' | 'places' | 'maps' | 'items' | 'events'
 >;
-export type SidebarPlaceholderView = Extract<WorkspaceView, 'powers' | 'organizations'>;
-export type SidebarFolderId = SidebarImplementedView | SidebarPlaceholderView;
+export type SidebarLeafWorkspaceView = Extract<
+  WorkspaceView,
+  'powers' | 'organizations' | 'manuscript' | 'plot' | 'writing-ideas'
+>;
+export type SidebarWorkspaceView = SidebarRecordWorkspaceView | SidebarLeafWorkspaceView;
+export type SidebarExpandableId = SidebarSectionWithChildrenView | SidebarRecordWorkspaceView;
 export type SidebarEntityKind = 'character' | 'location' | 'map' | 'item' | 'event';
-export type SidebarFolderExpansionState = Partial<Record<SidebarFolderId, boolean>>;
+export type SidebarExpansionState = Partial<Record<SidebarExpandableId, boolean>>;
 
 type SidebarHomeConfig = {
   kind: 'home';
@@ -20,22 +29,14 @@ type SidebarHomeConfig = {
   label: string;
 };
 
-type SidebarImplementedFolderConfig = {
-  kind: 'folder';
-  id: SidebarImplementedView;
+type SidebarSectionConfig = {
+  childViews: SidebarWorkspaceView[];
+  id: SidebarSectionView;
+  kind: 'section';
   label: string;
 };
 
-type SidebarDisabledFolderConfig = {
-  kind: 'disabled-folder';
-  id: SidebarPlaceholderView;
-  label: string;
-};
-
-type SidebarConfig =
-  | SidebarHomeConfig
-  | SidebarImplementedFolderConfig
-  | SidebarDisabledFolderConfig;
+type SidebarConfig = SidebarHomeConfig | SidebarSectionConfig;
 
 export type SidebarSelectionState = {
   selectedCharacterId: number | null;
@@ -58,48 +59,70 @@ export type SidebarEntitySelection = {
   id: number;
 };
 
-export type SidebarTreeItemNode = {
-  type: 'item';
-  id: string;
-  itemKind: 'home' | 'record';
-  label: string;
-  route: WorkspaceView;
+type SidebarSelectableBaseNode = {
   entitySelection: SidebarEntitySelection | null;
   isCurrent: boolean;
+  label: string;
+  route: WorkspaceView;
 };
 
-export type SidebarTreeFolderNode = {
-  type: 'folder';
-  id: SidebarImplementedView;
-  label: string;
-  route: SidebarImplementedView;
-  count: number;
-  isCurrent: boolean;
+export type SidebarHomeNode = SidebarSelectableBaseNode & {
+  id: 'overview';
+  type: 'home';
+};
+
+export type SidebarRecordNode = SidebarSelectableBaseNode & {
+  id: string;
+  route: SidebarRecordWorkspaceView;
+  type: 'record';
+};
+
+export type SidebarWorkspaceNode = SidebarSelectableBaseNode & {
+  children: SidebarRecordNode[];
+  count: number | null;
+  id: SidebarWorkspaceView;
+  isExpandable: boolean;
   isExpanded: boolean;
-  children: SidebarTreeItemNode[];
+  route: SidebarWorkspaceView;
+  type: 'workspace';
 };
 
-export type SidebarTreeDisabledFolderNode = {
-  type: 'disabled-folder';
-  id: SidebarPlaceholderView;
-  label: string;
+export type SidebarSectionNode = SidebarSelectableBaseNode & {
+  children: SidebarWorkspaceNode[];
+  count: number | null;
+  id: SidebarSectionView;
+  isExpandable: boolean;
+  isExpanded: boolean;
+  route: SidebarSectionView;
+  type: 'section';
 };
 
-export type SidebarTreeNode =
-  | SidebarTreeItemNode
-  | SidebarTreeFolderNode
-  | SidebarTreeDisabledFolderNode;
-
-export type SidebarSelectableNode = SidebarTreeItemNode | SidebarTreeFolderNode;
+export type SidebarTreeNode = SidebarHomeNode | SidebarSectionNode;
+export type SidebarSelectableNode =
+  | SidebarHomeNode
+  | SidebarSectionNode
+  | SidebarWorkspaceNode
+  | SidebarRecordNode;
 
 export type SidebarSelectionIntent = {
-  route: WorkspaceView;
   entitySelection: SidebarEntitySelection | null;
+  route: WorkspaceView;
 };
 
-function getWorkspaceLabel(view: WorkspaceView): string {
-  return workspaceOptions.find((workspace) => workspace.id === view)?.label ?? view;
-}
+const sidebarSections: Record<SidebarSectionView, WorkspaceView[]> = {
+  'world-elements': [
+    'world-elements',
+    'people',
+    'places',
+    'maps',
+    'items',
+    'events',
+    'powers',
+    'organizations',
+  ],
+  theories: ['theories'],
+  writing: ['writing', 'manuscript', 'plot', 'writing-ideas'],
+};
 
 const sidebarTreeConfig: SidebarConfig[] = [
   {
@@ -108,57 +131,65 @@ const sidebarTreeConfig: SidebarConfig[] = [
     label: getWorkspaceLabel('overview'),
   },
   {
-    kind: 'folder',
-    id: 'people',
-    label: getWorkspaceLabel('people'),
+    kind: 'section',
+    id: 'world-elements',
+    label: getWorkspaceLabel('world-elements'),
+    childViews: [
+      'people',
+      'places',
+      'maps',
+      'items',
+      'events',
+      'powers',
+      'organizations',
+    ],
   },
   {
-    kind: 'folder',
-    id: 'places',
-    label: getWorkspaceLabel('places'),
+    kind: 'section',
+    id: 'theories',
+    label: getWorkspaceLabel('theories'),
+    childViews: [],
   },
   {
-    kind: 'folder',
-    id: 'maps',
-    label: getWorkspaceLabel('maps'),
-  },
-  {
-    kind: 'folder',
-    id: 'items',
-    label: getWorkspaceLabel('items'),
-  },
-  {
-    kind: 'folder',
-    id: 'events',
-    label: getWorkspaceLabel('events'),
-  },
-  {
-    kind: 'disabled-folder',
-    id: 'powers',
-    label: getWorkspaceLabel('powers'),
-  },
-  {
-    kind: 'disabled-folder',
-    id: 'organizations',
-    label: getWorkspaceLabel('organizations'),
+    kind: 'section',
+    id: 'writing',
+    label: getWorkspaceLabel('writing'),
+    childViews: ['manuscript', 'plot', 'writing-ideas'],
   },
 ];
 
+function getWorkspaceLabel(view: WorkspaceView): string {
+  return workspaceOptions.find((workspace) => workspace.id === view)?.label ?? view;
+}
+
 function compareAlphabetically(left: string, right: string): number {
   return left.localeCompare(right, undefined, { sensitivity: 'base' });
+}
+
+function isRecordWorkspaceView(view: SidebarWorkspaceView): view is SidebarRecordWorkspaceView {
+  return (
+    view === 'people' ||
+    view === 'places' ||
+    view === 'maps' ||
+    view === 'items' ||
+    view === 'events'
+  );
+}
+
+function isViewInSection(sectionId: SidebarSectionView, activeView: WorkspaceView): boolean {
+  return sidebarSections[sectionId].includes(activeView);
 }
 
 function buildCharacterNodes(
   characters: Character[],
   activeView: WorkspaceView,
   selectedCharacterId: number | null,
-): SidebarTreeItemNode[] {
+): SidebarRecordNode[] {
   return [...characters]
     .sort((left, right) => compareAlphabetically(left.name, right.name) || left.id - right.id)
     .map((character) => ({
-      type: 'item',
+      type: 'record',
       id: `people:${character.id}`,
-      itemKind: 'record',
       label: character.name,
       route: 'people',
       entitySelection: { kind: 'character', id: character.id },
@@ -170,13 +201,12 @@ function buildLocationNodes(
   locations: Location[],
   activeView: WorkspaceView,
   selectedLocationId: number | null,
-): SidebarTreeItemNode[] {
+): SidebarRecordNode[] {
   return [...locations]
     .sort((left, right) => compareAlphabetically(left.name, right.name) || left.id - right.id)
     .map((location) => ({
-      type: 'item',
+      type: 'record',
       id: `places:${location.id}`,
-      itemKind: 'record',
       label: location.name,
       route: 'places',
       entitySelection: { kind: 'location', id: location.id },
@@ -188,13 +218,12 @@ function buildMapNodes(
   maps: MapRecord[],
   activeView: WorkspaceView,
   selectedMapId: number | null,
-): SidebarTreeItemNode[] {
+): SidebarRecordNode[] {
   return [...maps]
     .sort((left, right) => compareAlphabetically(left.name, right.name) || left.id - right.id)
     .map((map) => ({
-      type: 'item',
+      type: 'record',
       id: `maps:${map.id}`,
-      itemKind: 'record',
       label: map.name,
       route: 'maps',
       entitySelection: { kind: 'map', id: map.id },
@@ -206,13 +235,12 @@ function buildItemNodes(
   items: Item[],
   activeView: WorkspaceView,
   selectedItemId: number | null,
-): SidebarTreeItemNode[] {
+): SidebarRecordNode[] {
   return [...items]
     .sort((left, right) => compareAlphabetically(left.name, right.name) || left.id - right.id)
     .map((item) => ({
-      type: 'item',
+      type: 'record',
       id: `items:${item.id}`,
-      itemKind: 'record',
       label: item.name,
       route: 'items',
       entitySelection: { kind: 'item', id: item.id },
@@ -224,13 +252,12 @@ function buildEventNodes(
   events: Event[],
   activeView: WorkspaceView,
   selectedEventId: number | null,
-): SidebarTreeItemNode[] {
+): SidebarRecordNode[] {
   return [...events]
     .sort((left, right) => right.startTick - left.startTick || right.id - left.id)
     .map((event) => ({
-      type: 'item',
+      type: 'record',
       id: `events:${event.id}`,
-      itemKind: 'record',
       label: event.title,
       route: 'events',
       entitySelection: { kind: 'event', id: event.id },
@@ -238,13 +265,13 @@ function buildEventNodes(
     }));
 }
 
-function buildFolderChildren(
-  folderId: SidebarImplementedView,
+function buildRecordChildren(
+  workspaceId: SidebarRecordWorkspaceView,
   data: SidebarDataSnapshot,
   activeView: WorkspaceView,
   selectionState: SidebarSelectionState,
-): SidebarTreeItemNode[] {
-  switch (folderId) {
+): SidebarRecordNode[] {
+  switch (workspaceId) {
     case 'people':
       return buildCharacterNodes(data.characters, activeView, selectionState.selectedCharacterId);
     case 'places':
@@ -258,24 +285,57 @@ function buildFolderChildren(
   }
 }
 
-export function isSidebarFolderExpanded(
-  folderId: SidebarFolderId,
+function buildWorkspaceNode(input: {
+  activeView: WorkspaceView;
+  data: SidebarDataSnapshot;
+  expansionState: SidebarExpansionState;
+  selectionState: SidebarSelectionState;
+  workspaceId: SidebarWorkspaceView;
+}): SidebarWorkspaceNode {
+  const { activeView, data, expansionState, selectionState, workspaceId } = input;
+  const isExpandable = isRecordWorkspaceView(workspaceId);
+  const children = isExpandable
+    ? buildRecordChildren(workspaceId, data, activeView, selectionState)
+    : [];
+
+  return {
+    type: 'workspace',
+    id: workspaceId,
+    label: getWorkspaceLabel(workspaceId),
+    route: workspaceId,
+    entitySelection: null,
+    isCurrent: activeView === workspaceId,
+    isExpandable,
+    isExpanded: isExpandable
+      ? isSidebarNodeExpanded(workspaceId, activeView, expansionState)
+      : false,
+    count: isExpandable ? children.length : null,
+    children,
+  };
+}
+
+export function isSidebarNodeExpanded(
+  nodeId: SidebarExpandableId,
   activeView: WorkspaceView,
-  expansionState: SidebarFolderExpansionState,
+  expansionState: SidebarExpansionState,
 ): boolean {
-  const manualValue = expansionState[folderId];
+  const manualValue = expansionState[nodeId];
 
   if (manualValue !== undefined) {
     return manualValue;
   }
 
-  return activeView === folderId;
+  if (nodeId === 'world-elements' || nodeId === 'writing') {
+    return isViewInSection(nodeId, activeView);
+  }
+
+  return activeView === nodeId;
 }
 
 export function buildSidebarTreeNodes(input: {
   activeView: WorkspaceView;
   data: SidebarDataSnapshot;
-  expansionState: SidebarFolderExpansionState;
+  expansionState: SidebarExpansionState;
   selectionState: SidebarSelectionState;
 }): SidebarTreeNode[] {
   const { activeView, data, expansionState, selectionState } = input;
@@ -283,9 +343,8 @@ export function buildSidebarTreeNodes(input: {
   return sidebarTreeConfig.map((config): SidebarTreeNode => {
     if (config.kind === 'home') {
       return {
-        type: 'item',
+        type: 'home',
         id: config.id,
-        itemKind: 'home',
         label: config.label,
         route: config.id,
         entitySelection: null,
@@ -293,43 +352,35 @@ export function buildSidebarTreeNodes(input: {
       };
     }
 
-    if (config.kind === 'disabled-folder') {
-      return {
-        type: 'disabled-folder',
-        id: config.id,
-        label: config.label,
-      };
-    }
-
-    const children = buildFolderChildren(config.id, data, activeView, selectionState);
+    const isExpandable = config.childViews.length > 0;
+    const children = config.childViews.map((workspaceId) =>
+      buildWorkspaceNode({
+        activeView,
+        data,
+        expansionState,
+        selectionState,
+        workspaceId,
+      }),
+    );
 
     return {
-      type: 'folder',
+      type: 'section',
       id: config.id,
       label: config.label,
       route: config.id,
-      count: children.length,
-      isCurrent: activeView === config.id,
-      isExpanded: isSidebarFolderExpanded(config.id, activeView, expansionState),
+      entitySelection: null,
+      isCurrent: isViewInSection(config.id, activeView),
+      isExpandable,
+      isExpanded: isExpandable
+        ? isSidebarNodeExpanded(config.id as SidebarSectionWithChildrenView, activeView, expansionState)
+        : false,
+      count: isExpandable ? children.length : null,
       children,
     };
   });
 }
 
-export function resolveSidebarSelection(
-  node: SidebarTreeNode,
-): SidebarSelectionIntent | null {
-  if (node.type === 'disabled-folder') {
-    return null;
-  }
-
-  if (node.type === 'folder') {
-    return {
-      route: node.route,
-      entitySelection: null,
-    };
-  }
-
+export function resolveSidebarSelection(node: SidebarSelectableNode): SidebarSelectionIntent {
   return {
     route: node.route,
     entitySelection: node.entitySelection,

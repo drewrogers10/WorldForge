@@ -1,8 +1,10 @@
 import {
   useEffect,
+  useCallback,
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type ReactElement,
   type MouseEvent as ReactMouseEvent,
   type FormEvent,
@@ -10,7 +12,8 @@ import {
 import clsx from 'clsx';
 import { EntityLinksPanel } from '@renderer/components/EntityLinksPanel';
 import { Panel } from '@renderer/components/Panel';
-import { getErrorMessage } from '@renderer/lib/forms';
+import { useTopBarControls } from '@renderer/components/TopBarControls';
+import { areFormStatesEqual, getErrorMessage } from '@renderer/lib/forms';
 import { useEntityStore } from '@renderer/store/entityStore';
 import { useSidebarStore } from '@renderer/store/sidebarStore';
 import { useTemporalStore } from '@renderer/store/temporalStore';
@@ -18,11 +21,13 @@ import { useUiStore } from '@renderer/store/uiStore';
 import type { Event } from '@shared/event';
 import type { Location } from '@shared/location';
 import type {
+  FeatureRole,
   MapAnchor,
   MapFeature,
   MapGeometry,
   MapRecord,
   MapStyle,
+  ThemePreset,
 } from '@shared/map';
 import { formatWorldTick } from '@shared/temporal';
 import {
@@ -33,14 +38,45 @@ import {
   type Point,
   type Viewport,
 } from './mapViewport';
+import {
+  getAnchorBadgeMetrics,
+  getAnchorLabelMetrics,
+  getDraftOverlayMetrics,
+  getFeatureHandleMetrics,
+  getFeatureLabelMetrics,
+  getFeatureMarkerMetrics,
+  getFeatureStrokeWidth,
+} from './mapOverlayScale';
+import {
+  createDefaultLayerVisibility,
+  createEditorHistory,
+  filterVisibleFeatures,
+  insertGeometryPoint,
+  pushEditorHistory,
+  redoEditorHistory,
+  removeGeometryPoint,
+  snapPointToGrid,
+  undoEditorHistory,
+  type EditorHistorySnapshot,
+  type LayerVisibility,
+} from './mapEditorState';
+import {
+  getCompatibleFeatureRoles,
+  getDefaultFeatureStyle,
+  getFeatureKindForRole,
+  getThemeVisuals,
+  themePresetLabels,
+  toolLabels,
+  type FeatureKind,
+  type MapTool,
+} from './mapFeaturePresets';
 import styles from './MapPage.module.css';
 
 type DisplayKind = MapRecord['displayKind'];
-type FeatureKind = MapFeature['featureKind'];
-type Tool = 'select' | 'pan' | 'anchor' | FeatureKind;
 type MapFormState = {
   name: string;
   displayKind: DisplayKind;
+  themePreset: ThemePreset;
   focusLocationId: string;
   parentMapId: string;
   imageAssetPath: string;
@@ -49,6 +85,7 @@ type MapFormState = {
 };
 type FeatureFormState = {
   featureKind: FeatureKind;
+  featureRole: FeatureRole;
   label: string;
   locationId: string;
   eventId: string;
@@ -65,33 +102,25 @@ type DragVertexState = {
   pointIndex: number;
 };
 type ActiveDrawer = 'none' | 'admin' | 'inspector';
+type AdminMode = 'browse' | 'create' | 'edit';
 type InspectorMode = 'none' | 'feature' | 'anchor' | 'draft';
-
-const toolLabels: Record<Tool, string> = {
-  select: 'Select',
-  pan: 'Pan',
-  marker: 'Marker',
-  path: 'Path',
-  polygon: 'Polygon',
-  border: 'Boundary',
-  anchor: 'Place Link',
-};
 
 const MAP_WHEEL_PASSTHROUGH_SELECTOR =
   '[data-map-wheel-passthrough="true"], button, input, select, textarea, [contenteditable="true"]';
 
-function isFeatureTool(tool: Tool): tool is FeatureKind {
-  return tool === 'marker' || tool === 'path' || tool === 'polygon' || tool === 'border';
+function isFeatureTool(tool: MapTool): tool is FeatureRole {
+  return tool !== 'select' && tool !== 'pan' && tool !== 'anchor';
 }
 
-function isDraftCapableTool(tool: Tool): boolean {
-  return tool === 'path' || tool === 'polygon' || tool === 'border';
+function isDraftCapableTool(tool: MapTool, featureKind: FeatureKind): boolean {
+  return isFeatureTool(tool) && getFeatureKindForRole(tool, featureKind) !== 'marker';
 }
 
 function createEmptyMapForm(): MapFormState {
   return {
     name: '',
     displayKind: 'vector',
+    themePreset: 'parchment',
     focusLocationId: '',
     parentMapId: '',
     imageAssetPath: '',
@@ -104,6 +133,7 @@ function toMapForm(map: MapRecord): MapFormState {
   return {
     name: map.name,
     displayKind: map.displayKind,
+    themePreset: map.themePreset,
     focusLocationId: map.focusLocationId === null ? '' : String(map.focusLocationId),
     parentMapId: map.parentMapId === null ? '' : String(map.parentMapId),
     imageAssetPath: map.imageAssetPath ?? '',
@@ -112,18 +142,27 @@ function toMapForm(map: MapRecord): MapFormState {
   };
 }
 
-function createEmptyFeatureForm(defaultTick: number): FeatureFormState {
+function createFeatureFormState(
+  themePreset: ThemePreset,
+  defaultTick: number,
+  featureRole: FeatureRole = 'custom',
+  fallbackKind: FeatureKind = 'marker',
+): FeatureFormState {
+  const featureKind = getFeatureKindForRole(featureRole, fallbackKind);
+  const style = getDefaultFeatureStyle(featureRole, themePreset, featureKind);
+
   return {
-    featureKind: 'marker',
+    featureKind,
+    featureRole,
     label: '',
     locationId: '',
     eventId: '',
     sourceEventId: '',
-    stroke: '#f7c46c',
-    fill: '#f7c46c22',
-    strokeWidth: 120,
-    opacity: 0.92,
-    markerSize: 260,
+    stroke: style.stroke ?? '',
+    fill: style.fill ?? '',
+    strokeWidth: style.strokeWidth ?? 120,
+    opacity: style.opacity ?? 0.92,
+    markerSize: style.markerSize ?? 260,
     effectiveTick: defaultTick,
   };
 }
@@ -131,6 +170,7 @@ function createEmptyFeatureForm(defaultTick: number): FeatureFormState {
 function toFeatureForm(feature: MapFeature, committedTick: number): FeatureFormState {
   return {
     featureKind: feature.featureKind,
+    featureRole: feature.featureRole,
     label: feature.label,
     locationId: feature.locationId === null ? '' : String(feature.locationId),
     eventId: feature.eventId === null ? '' : String(feature.eventId),
@@ -147,7 +187,7 @@ function toFeatureForm(feature: MapFeature, committedTick: number): FeatureFormS
 function buildStyle(form: FeatureFormState): MapStyle {
   return {
     stroke: form.stroke,
-    fill: form.fill,
+    fill: form.featureKind === 'path' ? 'none' : form.fill,
     strokeWidth: form.strokeWidth,
     opacity: form.opacity,
     markerSize: form.markerSize,
@@ -222,10 +262,30 @@ function shouldBypassWheelZoom(target: EventTarget | null): boolean {
   return target instanceof Element && target.closest(MAP_WHEEL_PASSTHROUGH_SELECTOR) !== null;
 }
 
+function shouldIgnoreKeyboardTarget(target: EventTarget | null): boolean {
+  return shouldBypassWheelZoom(target);
+}
+
+function createFeatureLabelStyle(fontSize: number, strokeWidth: number): CSSProperties {
+  return {
+    ['--feature-label-font-size' as string]: `${fontSize}px`,
+    ['--feature-label-stroke-width' as string]: `${strokeWidth}px`,
+  } as CSSProperties;
+}
+
+function createAnchorLabelStyle(fontSize: number, strokeWidth: number): CSSProperties {
+  return {
+    ['--anchor-label-font-size' as string]: `${fontSize}px`,
+    ['--anchor-label-stroke-width' as string]: `${strokeWidth}px`,
+  } as CSSProperties;
+}
+
 function renderFeatureShape(
   feature: MapFeature,
   geometry: MapGeometry,
   isSelected: boolean,
+  viewport: Viewport,
+  map: Pick<MapRecord, 'canvasWidth' | 'canvasHeight'>,
 ): ReactElement {
   const stroke = isSelected ? '#ffede0' : feature.style?.stroke ?? '#f7c46c';
   const fill =
@@ -234,39 +294,103 @@ function renderFeatureShape(
       : isSelected
         ? 'rgba(255, 237, 224, 0.14)'
         : feature.style?.fill ?? '#f7c46c22';
-  const strokeWidth = feature.style?.strokeWidth ?? 120;
   const opacity = feature.style?.opacity ?? 0.92;
   const markerSize = feature.style?.markerSize ?? 260;
 
   if (geometry.type === 'marker') {
+    const markerMetrics = getFeatureMarkerMetrics(markerSize, viewport, map);
+
+    if (feature.featureRole === 'settlement') {
+      return (
+        <g>
+          <circle
+            cx={geometry.point.x}
+            cy={geometry.point.y}
+            fill={fill}
+            opacity={opacity}
+            r={markerMetrics.radius * 1.15}
+            stroke={stroke}
+            strokeWidth={markerMetrics.strokeWidth}
+          />
+          <circle
+            cx={geometry.point.x}
+            cy={geometry.point.y}
+            fill={stroke}
+            opacity={opacity}
+            r={markerMetrics.radius * 0.45}
+          />
+        </g>
+      );
+    }
+
     return (
       <circle
         cx={geometry.point.x}
         cy={geometry.point.y}
         fill={stroke}
         opacity={opacity}
-        r={markerSize}
+        r={markerMetrics.radius}
         stroke={isSelected ? '#fff6ef' : 'rgba(9, 12, 17, 0.7)'}
-        strokeWidth={80}
+        strokeWidth={markerMetrics.strokeWidth}
       />
     );
   }
 
   const points = geometry.points.map((point) => `${point.x},${point.y}`).join(' ');
+  const strokeWidth = getFeatureStrokeWidth(feature.style?.strokeWidth ?? 120, viewport, map);
 
   if (geometry.type === 'path') {
+    const dashArray =
+      feature.featureRole === 'road'
+        ? `${strokeWidth * 1.2} ${strokeWidth * 0.6}`
+        : feature.featureRole === 'mountainRange'
+          ? `${strokeWidth * 0.6} ${strokeWidth * 0.9}`
+          : undefined;
+
     return (
-      <polyline
-        fill="none"
-        opacity={opacity}
-        points={points}
-        stroke={stroke}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={strokeWidth}
-      />
+      <g>
+        <polyline
+          fill="none"
+          opacity={opacity}
+          points={points}
+          stroke={stroke}
+          strokeDasharray={dashArray}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={strokeWidth}
+        />
+        {feature.featureRole === 'mountainRange'
+          ? geometry.points.slice(0, -1).flatMap((point, index) => {
+              const next = geometry.points[index + 1];
+              if (!next) {
+                return [];
+              }
+              const rotation = Math.atan2(next.y - point.y, next.x - point.x) * (180 / Math.PI);
+              const midX = (point.x + next.x) / 2;
+              const midY = (point.y + next.y) / 2;
+              const triangleSize = strokeWidth * 2.1;
+
+              return [
+                <path
+                  key={`${feature.id}-mountain-${index}`}
+                  d={`M ${midX - triangleSize} ${midY + triangleSize * 0.7} L ${midX} ${midY - triangleSize} L ${midX + triangleSize} ${midY + triangleSize * 0.7} Z`}
+                  fill={fill}
+                  opacity={Math.min(1, opacity + 0.05)}
+                  stroke={stroke}
+                  strokeWidth={strokeWidth * 0.18}
+                  transform={`rotate(${rotation}, ${midX}, ${midY})`}
+                />,
+              ];
+            })
+          : null}
+      </g>
     );
   }
+
+  const dashArray =
+    feature.featureRole === 'regionBorder'
+      ? `${strokeWidth * 1.25} ${strokeWidth * 0.75}`
+      : undefined;
 
   return (
     <polygon
@@ -274,6 +398,7 @@ function renderFeatureShape(
       opacity={opacity}
       points={points}
       stroke={stroke}
+      strokeDasharray={dashArray}
       strokeLinejoin="round"
       strokeWidth={strokeWidth}
     />
@@ -284,15 +409,16 @@ export function MapPage() {
   const canvasFrameRef = useRef<HTMLDivElement | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const previousSelectedFeatureIdRef = useRef<number | null>(null);
-  const previousToolRef = useRef<Tool>('select');
+  const previousToolRef = useRef<MapTool>('select');
   const { committedTick, previewTick, refreshTimeline } = useTemporalStore();
   const tick = previewTick ?? committedTick;
   const { selectedMapId, setSelectedMapId } = useEntityStore();
   const loadSidebarData = useSidebarStore((state) => state.loadSidebarData);
   const setErrorMessage = useUiStore((state) => state.setErrorMessage);
 
-  const [tool, setTool] = useState<Tool>('select');
+  const [tool, setTool] = useState<MapTool>('select');
   const [activeDrawer, setActiveDrawer] = useState<ActiveDrawer>('none');
+  const [adminMode, setAdminMode] = useState<AdminMode>('browse');
   const [maps, setMaps] = useState<MapRecord[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
@@ -302,7 +428,9 @@ export function MapPage() {
   const [selectedFeatureId, setSelectedFeatureId] = useState<number | null>(null);
   const [draftPoints, setDraftPoints] = useState<Point[]>([]);
   const [dragVertex, setDragVertex] = useState<DragVertexState | null>(null);
+  const [selectedVertexIndex, setSelectedVertexIndex] = useState<number | null>(null);
   const [liveGeometry, setLiveGeometry] = useState<MapGeometry | null>(null);
+  const [editorHistory, setEditorHistory] = useState(() => createEditorHistory());
   const [viewport, setViewport] = useState<Viewport | null>(null);
   const [isPanning, setIsPanning] = useState(false);
   const [panOrigin, setPanOrigin] = useState<{
@@ -313,11 +441,14 @@ export function MapPage() {
   const [createMapForm, setCreateMapForm] = useState<MapFormState>(createEmptyMapForm());
   const [editMapForm, setEditMapForm] = useState<MapFormState>(createEmptyMapForm());
   const [createFeatureForm, setCreateFeatureForm] = useState<FeatureFormState>(
-    createEmptyFeatureForm(committedTick),
+    createFeatureFormState('parchment', committedTick),
   );
   const [editFeatureForm, setEditFeatureForm] = useState<FeatureFormState>(
-    createEmptyFeatureForm(committedTick),
+    createFeatureFormState('parchment', committedTick),
   );
+  const [showGrid, setShowGrid] = useState(true);
+  const [snapToGrid, setSnapToGrid] = useState(false);
+  const [layerVisibility, setLayerVisibility] = useState<LayerVisibility>(createDefaultLayerVisibility());
   const [isLoading, setIsLoading] = useState(false);
   const [isSavingMap, setIsSavingMap] = useState(false);
   const [isSavingFeature, setIsSavingFeature] = useState(false);
@@ -330,6 +461,10 @@ export function MapPage() {
   const selectedMapAnchors = selectedMap ? anchorCache[selectedMap.id] ?? [] : [];
   const selectedFeatureGeometry =
     selectedFeature && liveGeometry ? liveGeometry : selectedFeature?.geometry ?? null;
+  const visibleMapFeatures = useMemo(
+    () => filterVisibleFeatures(mapFeatures, layerVisibility),
+    [layerVisibility, mapFeatures],
+  );
   const inspectorMode = useMemo<InspectorMode>(() => {
     if (!selectedMap) {
       return 'none';
@@ -365,6 +500,106 @@ export function MapPage() {
       );
     });
   }, [anchorCache, maps, selectedFeature, selectedMap]);
+  const createMapBaseline = useMemo(() => createEmptyMapForm(), []);
+  const editMapBaseline = useMemo(
+    () => (selectedMap ? toMapForm(selectedMap) : createEmptyMapForm()),
+    [selectedMap],
+  );
+  const isMapAdminDirty =
+    activeDrawer === 'admin' &&
+    (adminMode === 'create'
+      ? !areFormStatesEqual(createMapForm, createMapBaseline)
+      : adminMode === 'edit' && selectedMap
+        ? !areFormStatesEqual(editMapForm, editMapBaseline)
+        : false);
+  const themeVisuals = useMemo(
+    () => getThemeVisuals(selectedMap?.themePreset ?? 'parchment'),
+    [selectedMap?.themePreset],
+  );
+
+  function applyFeaturePreset(
+    currentForm: FeatureFormState,
+    featureRole: FeatureRole,
+    themePreset: ThemePreset,
+    fallbackKind = currentForm.featureKind,
+  ): FeatureFormState {
+    const featureKind = getFeatureKindForRole(featureRole, fallbackKind);
+    const style = getDefaultFeatureStyle(featureRole, themePreset, featureKind);
+
+    return {
+      ...currentForm,
+      featureKind,
+      featureRole,
+      stroke: style.stroke ?? currentForm.stroke,
+      fill: featureKind === 'path' ? 'none' : (style.fill ?? currentForm.fill),
+      strokeWidth: style.strokeWidth ?? currentForm.strokeWidth,
+      opacity: style.opacity ?? currentForm.opacity,
+      markerSize: style.markerSize ?? currentForm.markerSize,
+    };
+  }
+
+  function buildEditorSnapshot(
+    overrides: Partial<EditorHistorySnapshot> = {},
+  ): EditorHistorySnapshot {
+    return {
+      draftPoints: overrides.draftPoints ?? draftPoints,
+      liveGeometry: overrides.liveGeometry ?? liveGeometry,
+      selectedFeatureId: overrides.selectedFeatureId ?? selectedFeatureId,
+      selectedVertexIndex: overrides.selectedVertexIndex ?? selectedVertexIndex,
+    };
+  }
+
+  function applyEditorSnapshot(snapshot: EditorHistorySnapshot): void {
+    setDraftPoints(snapshot.draftPoints);
+    setLiveGeometry(snapshot.liveGeometry);
+    setSelectedVertexIndex(snapshot.selectedVertexIndex);
+    setSelectedFeatureId(snapshot.selectedFeatureId);
+  }
+
+  function resetEditorState(overrides: Partial<EditorHistorySnapshot> = {}): void {
+    const snapshot = buildEditorSnapshot({
+      draftPoints: [],
+      liveGeometry: null,
+      selectedVertexIndex: null,
+      ...overrides,
+    });
+
+    applyEditorSnapshot(snapshot);
+    setEditorHistory(createEditorHistory(snapshot));
+  }
+
+  function commitEditorSnapshot(overrides: Partial<EditorHistorySnapshot>): void {
+    const snapshot = buildEditorSnapshot(overrides);
+    applyEditorSnapshot(snapshot);
+    setEditorHistory((current) => pushEditorHistory(current, snapshot));
+  }
+
+  function handleUndo(): void {
+    const nextHistory = undoEditorHistory(editorHistory);
+
+    if (nextHistory === editorHistory) {
+      return;
+    }
+
+    setEditorHistory(nextHistory);
+    applyEditorSnapshot(nextHistory.present);
+  }
+
+  function handleRedo(): void {
+    const nextHistory = redoEditorHistory(editorHistory);
+
+    if (nextHistory === editorHistory) {
+      return;
+    }
+
+    setEditorHistory(nextHistory);
+    applyEditorSnapshot(nextHistory.present);
+  }
+
+  function resolveCanvasPoint(point: Point): Point {
+    return snapToGrid ? snapPointToGrid(point) : point;
+  }
+
   useEffect(() => {
     setCreateFeatureForm((current) => ({ ...current, effectiveTick: committedTick }));
     setEditFeatureForm((current) => ({ ...current, effectiveTick: committedTick }));
@@ -408,8 +643,8 @@ export function MapPage() {
       if (selectedMapId === null) {
         setSelectedMap(null);
         setMapFeatures([]);
-        setSelectedFeatureId(null);
         setViewport(null);
+        resetEditorState({ selectedFeatureId: null });
         return;
       }
 
@@ -430,28 +665,43 @@ export function MapPage() {
         if (mapRecord) {
           setEditMapForm(toMapForm(mapRecord));
           setViewport((current) => current ?? createFullViewport(mapRecord));
+          setCreateFeatureForm((current) => ({
+            ...createFeatureFormState(
+              mapRecord.themePreset,
+              committedTick,
+              isFeatureTool(tool) ? tool : current.featureRole,
+              current.featureKind,
+            ),
+            effectiveTick: current.effectiveTick,
+          }));
         }
+
+        resetEditorState({ selectedFeatureId: null });
       } catch (error) {
         setErrorMessage(getErrorMessage(error));
       }
     }
 
     void loadSelectedMapData();
-  }, [selectedMapId, setErrorMessage, tick]);
+  }, [committedTick, selectedMapId, setErrorMessage, tick, tool]);
 
   useEffect(() => {
     if (!selectedFeature) {
       setLiveGeometry(null);
+      setSelectedVertexIndex(null);
       return;
     }
 
     setEditFeatureForm(toFeatureForm(selectedFeature, committedTick));
-    setLiveGeometry(null);
+    resetEditorState({
+      selectedFeatureId: selectedFeature.id,
+    });
   }, [committedTick, selectedFeature]);
 
   useEffect(() => {
     if (selectedMapId === null) {
       setActiveDrawer('admin');
+      setAdminMode('create');
     }
   }, [selectedMapId]);
 
@@ -481,52 +731,31 @@ export function MapPage() {
   }, [activeDrawer, inspectorMode, selectedMapId]);
 
   useEffect(() => {
-    if (!dragVertex || !selectedFeature || !selectedFeatureGeometry || !selectedMap || !viewport) {
+    if (!dragVertex || !selectedFeatureGeometry || !selectedMap || !viewport) {
       return;
     }
 
     const currentViewport = viewport;
     const currentDragVertex = dragVertex;
     const baseGeometry = selectedFeatureGeometry;
+    let currentGeometry = baseGeometry;
 
     function handleMouseMove(event: MouseEvent) {
       if (!svgRef.current) {
         return;
       }
 
-      const point = getSvgPoint(svgRef.current, event, currentViewport);
-      setLiveGeometry(updateGeometryPoint(baseGeometry, currentDragVertex.pointIndex, point));
+      const point = resolveCanvasPoint(getSvgPoint(svgRef.current, event, currentViewport));
+      currentGeometry = updateGeometryPoint(baseGeometry, currentDragVertex.pointIndex, point);
+      setLiveGeometry(currentGeometry);
     }
 
-    async function handleMouseUp() {
-      if (selectedFeature && (liveGeometry ?? baseGeometry)) {
-        try {
-          setIsSavingFeature(true);
-          const updated = await window.worldForge.updateMapFeatureVersion({
-            id: selectedFeature.id,
-            featureKind: selectedFeature.featureKind,
-            label: editFeatureForm.label,
-            locationId: editFeatureForm.locationId === '' ? null : Number(editFeatureForm.locationId),
-            eventId: editFeatureForm.eventId === '' ? null : Number(editFeatureForm.eventId),
-            sourceEventId:
-              editFeatureForm.sourceEventId === '' ? null : Number(editFeatureForm.sourceEventId),
-            geometry: liveGeometry ?? baseGeometry,
-            style: buildStyle(editFeatureForm),
-            effectiveTick: editFeatureForm.effectiveTick,
-            mapId: selectedFeature.mapId,
-          });
-          setMapFeatures((current) =>
-            current.map((feature) => (feature.id === updated.id ? updated : feature)),
-          );
-        } catch (error) {
-          setErrorMessage(getErrorMessage(error));
-        } finally {
-          setIsSavingFeature(false);
-        }
-      }
-
+    function handleMouseUp() {
+      commitEditorSnapshot({
+        liveGeometry: currentGeometry,
+        selectedVertexIndex: currentDragVertex.pointIndex,
+      });
       setDragVertex(null);
-      setLiveGeometry(null);
     }
 
     window.addEventListener('mousemove', handleMouseMove);
@@ -537,13 +766,11 @@ export function MapPage() {
       window.removeEventListener('mouseup', handleMouseUp);
     };
   }, [
+    commitEditorSnapshot,
     dragVertex,
-    editFeatureForm,
-    liveGeometry,
-    selectedFeature,
     selectedFeatureGeometry,
     selectedMap,
-    setErrorMessage,
+    snapToGrid,
     viewport,
   ]);
 
@@ -618,6 +845,7 @@ export function MapPage() {
       const created = await window.worldForge.createMap({
         name: createMapForm.name,
         displayKind: createMapForm.displayKind,
+        themePreset: createMapForm.themePreset,
         focusLocationId:
           createMapForm.focusLocationId === '' ? null : Number(createMapForm.focusLocationId),
         parentMapId: createMapForm.parentMapId === '' ? null : Number(createMapForm.parentMapId),
@@ -629,6 +857,8 @@ export function MapPage() {
       setAnchorCache((current) => ({ ...current, [created.id]: [] }));
       setSelectedMapId(created.id);
       setCreateMapForm(createEmptyMapForm());
+      setAdminMode('edit');
+      setActiveDrawer('admin');
       await loadSidebarData(committedTick);
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
@@ -652,6 +882,7 @@ export function MapPage() {
         id: selectedMap.id,
         name: editMapForm.name,
         displayKind: editMapForm.displayKind,
+        themePreset: editMapForm.themePreset,
         focusLocationId: editMapForm.focusLocationId === '' ? null : Number(editMapForm.focusLocationId),
         parentMapId: editMapForm.parentMapId === '' ? null : Number(editMapForm.parentMapId),
         imageAssetPath: editMapForm.imageAssetPath || null,
@@ -661,11 +892,37 @@ export function MapPage() {
       setMaps((current) => current.map((map) => (map.id === updated.id ? updated : map)));
       setSelectedMap(updated);
       setViewport(clampViewport(viewport ?? createFullViewport(updated), updated));
+      setAdminMode('edit');
       await loadSidebarData(committedTick);
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     } finally {
       setIsSavingMap(false);
+    }
+  }
+
+  async function handlePickMapImage(target: 'create' | 'edit') {
+    try {
+      const imagePath = await window.worldForge.pickMapImage();
+
+      if (!imagePath) {
+        return;
+      }
+
+      if (target === 'create') {
+        setCreateMapForm((current) => ({
+          ...current,
+          imageAssetPath: imagePath,
+        }));
+        return;
+      }
+
+      setEditMapForm((current) => ({
+        ...current,
+        imageAssetPath: imagePath,
+      }));
+    } catch (error) {
+      setErrorMessage(getErrorMessage(error));
     }
   }
 
@@ -681,6 +938,7 @@ export function MapPage() {
       const created = await window.worldForge.createMapFeature({
         mapId: selectedMap.id,
         featureKind: geometry.type,
+        featureRole: createFeatureForm.featureRole,
         label: createFeatureForm.label,
         locationId: createFeatureForm.locationId === '' ? null : Number(createFeatureForm.locationId),
         eventId: createFeatureForm.eventId === '' ? null : Number(createFeatureForm.eventId),
@@ -693,13 +951,25 @@ export function MapPage() {
 
       await refreshTimeline();
       await reloadCurrentMapFeatures(selectedMap.id, created.id);
-      setDraftPoints([]);
       setCreateFeatureForm((current) => ({
-        ...createEmptyFeatureForm(committedTick),
+        ...applyFeaturePreset(
+          createFeatureFormState(
+            selectedMap.themePreset,
+            committedTick,
+            current.featureRole,
+            current.featureKind,
+          ),
+          current.featureRole,
+          selectedMap.themePreset,
+          current.featureKind,
+        ),
         effectiveTick: current.effectiveTick,
         featureKind: current.featureKind,
+        featureRole: current.featureRole,
       }));
-      setSelectedFeatureId(created.id);
+      resetEditorState({
+        selectedFeatureId: created.id,
+      });
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     } finally {
@@ -722,6 +992,7 @@ export function MapPage() {
         id: selectedFeature.id,
         mapId: selectedMap.id,
         featureKind: selectedFeature.featureKind,
+        featureRole: editFeatureForm.featureRole,
         label: editFeatureForm.label,
         locationId: editFeatureForm.locationId === '' ? null : Number(editFeatureForm.locationId),
         eventId: editFeatureForm.eventId === '' ? null : Number(editFeatureForm.eventId),
@@ -731,9 +1002,13 @@ export function MapPage() {
         style: buildStyle(editFeatureForm),
         effectiveTick: editFeatureForm.effectiveTick,
       });
+      await refreshTimeline();
       setMapFeatures((current) =>
         current.map((feature) => (feature.id === updated.id ? updated : feature)),
       );
+      resetEditorState({
+        selectedFeatureId: selectedFeature.id,
+      });
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     } finally {
@@ -760,6 +1035,7 @@ export function MapPage() {
       });
       await refreshTimeline();
       await reloadCurrentMapFeatures(selectedMap.id, null);
+      resetEditorState({ selectedFeatureId: null });
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
     } finally {
@@ -824,10 +1100,10 @@ export function MapPage() {
       return;
     }
 
-    const point = getSvgPoint(svgRef.current, event, viewport);
+    const point = resolveCanvasPoint(getSvgPoint(svgRef.current, event, viewport));
 
     if (tool === 'select') {
-      setSelectedFeatureId(null);
+      resetEditorState({ selectedFeatureId: null });
       return;
     }
 
@@ -836,12 +1112,26 @@ export function MapPage() {
       return;
     }
 
-    if (tool === 'marker') {
-      void handleCreateFeature({ type: 'marker', point });
+    if (!isFeatureTool(tool)) {
       return;
     }
 
-    setDraftPoints((current) => [...current, point]);
+    const featureKind = getFeatureKindForRole(tool, createFeatureForm.featureKind);
+
+    if (featureKind === 'marker') {
+      void handleCreateFeature({
+        type: 'marker',
+        point,
+      });
+      return;
+    }
+
+    commitEditorSnapshot({
+      draftPoints: [...draftPoints, point],
+      liveGeometry: null,
+      selectedFeatureId: null,
+      selectedVertexIndex: null,
+    });
   }
 
   function handleMouseDown(event: ReactMouseEvent<SVGSVGElement>) {
@@ -894,11 +1184,17 @@ export function MapPage() {
   }
 
   async function handleFinishDraft() {
-    if (!selectedMap || tool === 'select' || tool === 'pan' || tool === 'anchor' || tool === 'marker') {
+    if (!selectedMap || !isFeatureTool(tool)) {
       return;
     }
 
-    const geometry = defaultGeometryForTool(tool, draftPoints);
+    const featureKind = getFeatureKindForRole(tool, createFeatureForm.featureKind);
+
+    if (featureKind === 'marker') {
+      return;
+    }
+
+    const geometry = defaultGeometryForTool(featureKind, draftPoints);
 
     if (!geometry) {
       return;
@@ -907,25 +1203,94 @@ export function MapPage() {
     await handleCreateFeature(geometry);
   }
 
-  function handleToolChange(nextTool: Tool) {
+  function handleToolChange(nextTool: MapTool) {
     setTool(nextTool);
-    setDraftPoints([]);
+    resetEditorState({
+      selectedFeatureId:
+        nextTool === 'select' || nextTool === 'pan' ? selectedFeatureId : null,
+    });
 
-    if (nextTool === 'marker' || nextTool === 'path' || nextTool === 'polygon' || nextTool === 'border') {
+    if (isFeatureTool(nextTool)) {
       setCreateFeatureForm((current) => ({
-        ...current,
-        featureKind: nextTool,
+        ...applyFeaturePreset(
+          current,
+          nextTool,
+          selectedMap?.themePreset ?? createMapForm.themePreset,
+          current.featureKind,
+        ),
+        effectiveTick: current.effectiveTick,
       }));
     }
   }
 
+  const confirmMapNavigation = useCallback(() => {
+    if (!isMapAdminDirty) {
+      return true;
+    }
+
+    return window.confirm(
+      adminMode === 'create'
+        ? 'Discard this new map draft?'
+        : 'Discard unsaved changes to this map?',
+    );
+  }, [adminMode, isMapAdminDirty]);
+
+  const openMapSettings = useCallback(() => {
+    if (activeDrawer === 'admin') {
+      if (!confirmMapNavigation()) {
+        return;
+      }
+
+      setActiveDrawer('none');
+      setAdminMode('browse');
+      return;
+    }
+
+    setActiveDrawer('admin');
+    setAdminMode('browse');
+  }, [activeDrawer, confirmMapNavigation]);
+
+  const openCreateMapAdmin = useCallback(() => {
+    if (!confirmMapNavigation()) {
+      return;
+    }
+
+    setCreateMapForm(createEmptyMapForm());
+    setActiveDrawer('admin');
+    setAdminMode('create');
+  }, [confirmMapNavigation]);
+
+  const openEditMapAdmin = useCallback(() => {
+    if (!selectedMap || !confirmMapNavigation()) {
+      return;
+    }
+
+    setEditMapForm(toMapForm(selectedMap));
+    setActiveDrawer('admin');
+    setAdminMode('edit');
+  }, [confirmMapNavigation, selectedMap]);
+
+  const handleMapRecordSelect = useCallback(
+    (mapId: number) => {
+      if (mapId === selectedMapId) {
+        return;
+      }
+
+      if (!confirmMapNavigation()) {
+        return;
+      }
+
+      setSelectedMapId(mapId);
+      resetEditorState({
+        selectedFeatureId: null,
+      });
+    },
+    [confirmMapNavigation, resetEditorState, selectedMapId, setSelectedMapId],
+  );
+
   function handleFeatureSelect(featureId: number) {
     setSelectedFeatureId(featureId);
     setActiveDrawer('inspector');
-  }
-
-  function handleAdminDrawerToggle() {
-    setActiveDrawer((current) => (current === 'admin' ? 'none' : 'admin'));
   }
 
   function handleJumpToRelatedMap(map: MapRecord) {
@@ -949,10 +1314,210 @@ export function MapPage() {
     }
   }
 
+  function handleInsertSelectedVertex(point: Point) {
+    if (!selectedFeature || !selectedFeatureGeometry || selectedFeatureGeometry.type === 'marker') {
+      return;
+    }
+
+    commitEditorSnapshot({
+      liveGeometry: insertGeometryPoint(selectedFeatureGeometry, point),
+      selectedFeatureId: selectedFeature.id,
+      selectedVertexIndex: null,
+    });
+  }
+
+  function handleRemoveSelectedVertex() {
+    if (!selectedFeature || !selectedFeatureGeometry || selectedVertexIndex === null) {
+      return;
+    }
+
+    const nextGeometry = removeGeometryPoint(selectedFeatureGeometry, selectedVertexIndex);
+
+    if (!nextGeometry) {
+      return;
+    }
+
+    commitEditorSnapshot({
+      liveGeometry: nextGeometry,
+      selectedFeatureId: selectedFeature.id,
+      selectedVertexIndex: null,
+    });
+  }
+
+  function handleClearSelection() {
+    resetEditorState({ selectedFeatureId: null });
+  }
+
+  function handleResetViewport() {
+    if (!selectedMap) {
+      return;
+    }
+
+    setViewport(createFullViewport(selectedMap));
+  }
+
+  function handleCenterOnSelection() {
+    if (!selectedMap || !selectedFeatureGeometry) {
+      return;
+    }
+
+    const points = getGeometryPoints(selectedFeatureGeometry);
+    const focusPoint = points[0];
+
+    if (!focusPoint) {
+      return;
+    }
+
+    setViewport((current) =>
+      centerViewportOn(selectedMap, focusPoint, current ?? createFullViewport(selectedMap)),
+    );
+  }
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (shouldIgnoreKeyboardTarget(event.target)) {
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+      const isMod = event.metaKey || event.ctrlKey;
+
+      if (isMod && key === 'z') {
+        event.preventDefault();
+        if (event.shiftKey) {
+          handleRedo();
+        } else {
+          handleUndo();
+        }
+        return;
+      }
+
+      if (isMod && key === 'y') {
+        event.preventDefault();
+        handleRedo();
+        return;
+      }
+
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        if (draftPoints.length > 0) {
+          resetEditorState({ selectedFeatureId: null });
+          return;
+        }
+
+        if (liveGeometry) {
+          resetEditorState({ selectedFeatureId });
+          return;
+        }
+
+        if (selectedFeatureId !== null) {
+          handleClearSelection();
+        }
+        return;
+      }
+
+      if (event.key === 'Enter' && isDraftCapableTool(tool, createFeatureForm.featureKind)) {
+        event.preventDefault();
+        void handleFinishDraft();
+        return;
+      }
+
+      if (event.key !== 'Backspace' && event.key !== 'Delete') {
+        return;
+      }
+
+      if (selectedVertexIndex !== null) {
+        event.preventDefault();
+        handleRemoveSelectedVertex();
+        return;
+      }
+
+      if (selectedFeatureId !== null) {
+        event.preventDefault();
+        void handleDeleteSelectedFeature();
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [
+    createFeatureForm.featureKind,
+    draftPoints.length,
+    liveGeometry,
+    selectedFeatureId,
+    selectedVertexIndex,
+    tool,
+  ]);
+
+  const activeFeatureForm = selectedFeature ? editFeatureForm : createFeatureForm;
+  const compatibleFeatureRoles = getCompatibleFeatureRoles(activeFeatureForm.featureKind);
+  const currentDraftFeatureKind = isFeatureTool(tool)
+    ? getFeatureKindForRole(tool, createFeatureForm.featureKind)
+    : createFeatureForm.featureKind;
+
   const featureFormCard = (
     <div className="linked-card">
       <p className="card-title">{selectedFeature ? 'Selected Feature' : 'Feature Draft'}</p>
       <form className="form" onSubmit={selectedFeature ? handleSaveSelectedFeature : undefined}>
+        <label>
+          <span>Cartography Preset</span>
+          <select
+            onChange={(event) => {
+              const nextRole = event.target.value as FeatureRole;
+              const updater = selectedFeature ? setEditFeatureForm : setCreateFeatureForm;
+
+              updater((current) =>
+                applyFeaturePreset(
+                  current,
+                  nextRole,
+                  selectedMap?.themePreset ?? createMapForm.themePreset,
+                  current.featureKind,
+                ),
+              );
+
+              if (!selectedFeature) {
+                setTool(nextRole);
+              }
+            }}
+            value={activeFeatureForm.featureRole}
+          >
+            {compatibleFeatureRoles.map((featureRole) => (
+              <option key={featureRole} value={featureRole}>
+                {toolLabels[featureRole]}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        {activeFeatureForm.featureRole === 'custom' ? (
+          <label>
+            <span>Geometry</span>
+            <select
+              onChange={(event) => {
+                const nextKind = event.target.value as FeatureKind;
+                const updater = selectedFeature ? setEditFeatureForm : setCreateFeatureForm;
+
+                updater((current) =>
+                  applyFeaturePreset(
+                    current,
+                    'custom',
+                    selectedMap?.themePreset ?? createMapForm.themePreset,
+                    nextKind,
+                  ),
+                );
+              }}
+              value={activeFeatureForm.featureKind}
+            >
+              <option value="marker">Marker</option>
+              <option value="path">Path</option>
+              <option value="polygon">Polygon</option>
+              <option value="border">Border</option>
+            </select>
+          </label>
+        ) : null}
+
         <label>
           <span>Label</span>
           <input
@@ -960,7 +1525,7 @@ export function MapPage() {
               const updater = selectedFeature ? setEditFeatureForm : setCreateFeatureForm;
               updater((current) => ({ ...current, label: event.target.value }));
             }}
-            value={selectedFeature ? editFeatureForm.label : createFeatureForm.label}
+            value={activeFeatureForm.label}
           />
         </label>
 
@@ -971,7 +1536,7 @@ export function MapPage() {
               const updater = selectedFeature ? setEditFeatureForm : setCreateFeatureForm;
               updater((current) => ({ ...current, locationId: event.target.value }));
             }}
-            value={selectedFeature ? editFeatureForm.locationId : createFeatureForm.locationId}
+            value={activeFeatureForm.locationId}
           >
             <option value="">No linked place</option>
             {locations.map((location) => (
@@ -989,7 +1554,7 @@ export function MapPage() {
               const updater = selectedFeature ? setEditFeatureForm : setCreateFeatureForm;
               updater((current) => ({ ...current, eventId: event.target.value }));
             }}
-            value={selectedFeature ? editFeatureForm.eventId : createFeatureForm.eventId}
+            value={activeFeatureForm.eventId}
           >
             <option value="">No linked event</option>
             {events.map((event) => (
@@ -1007,7 +1572,7 @@ export function MapPage() {
               const updater = selectedFeature ? setEditFeatureForm : setCreateFeatureForm;
               updater((current) => ({ ...current, sourceEventId: event.target.value }));
             }}
-            value={selectedFeature ? editFeatureForm.sourceEventId : createFeatureForm.sourceEventId}
+            value={activeFeatureForm.sourceEventId}
           >
             <option value="">No source event</option>
             {events.map((event) => (
@@ -1026,17 +1591,18 @@ export function MapPage() {
                 const updater = selectedFeature ? setEditFeatureForm : setCreateFeatureForm;
                 updater((current) => ({ ...current, stroke: event.target.value }));
               }}
-              value={selectedFeature ? editFeatureForm.stroke : createFeatureForm.stroke}
+              value={activeFeatureForm.stroke}
             />
           </label>
           <label>
             <span>Fill</span>
             <input
+              disabled={activeFeatureForm.featureKind === 'path'}
               onChange={(event) => {
                 const updater = selectedFeature ? setEditFeatureForm : setCreateFeatureForm;
                 updater((current) => ({ ...current, fill: event.target.value }));
               }}
-              value={selectedFeature ? editFeatureForm.fill : createFeatureForm.fill}
+              value={activeFeatureForm.featureKind === 'path' ? 'none' : activeFeatureForm.fill}
             />
           </label>
           <label>
@@ -1051,7 +1617,7 @@ export function MapPage() {
                 }));
               }}
               type="number"
-              value={selectedFeature ? editFeatureForm.strokeWidth : createFeatureForm.strokeWidth}
+              value={activeFeatureForm.strokeWidth}
             />
           </label>
           <label>
@@ -1068,12 +1634,13 @@ export function MapPage() {
               }}
               step="0.05"
               type="number"
-              value={selectedFeature ? editFeatureForm.opacity : createFeatureForm.opacity}
+              value={activeFeatureForm.opacity}
             />
           </label>
           <label>
             <span>Marker Size</span>
             <input
+              disabled={activeFeatureForm.featureKind !== 'marker'}
               min={20}
               onChange={(event) => {
                 const updater = selectedFeature ? setEditFeatureForm : setCreateFeatureForm;
@@ -1083,7 +1650,7 @@ export function MapPage() {
                 }));
               }}
               type="number"
-              value={selectedFeature ? editFeatureForm.markerSize : createFeatureForm.markerSize}
+              value={activeFeatureForm.markerSize}
             />
           </label>
           <label>
@@ -1098,9 +1665,41 @@ export function MapPage() {
                 }));
               }}
               type="number"
-              value={selectedFeature ? editFeatureForm.effectiveTick : createFeatureForm.effectiveTick}
+              value={activeFeatureForm.effectiveTick}
             />
           </label>
+        </div>
+
+        <div className="button-row">
+          <button
+            className="secondary-button"
+            onClick={() => {
+              const updater = selectedFeature ? setEditFeatureForm : setCreateFeatureForm;
+              updater((current) =>
+                applyFeaturePreset(
+                  current,
+                  current.featureRole,
+                  selectedMap?.themePreset ?? createMapForm.themePreset,
+                  current.featureKind,
+                ),
+              );
+            }}
+            type="button"
+          >
+            Apply Preset Style
+          </button>
+          {selectedFeature && selectedFeatureGeometry?.type !== 'marker' ? (
+            <button
+              className="secondary-button"
+              disabled={selectedVertexIndex === null}
+              onClick={() => {
+                handleRemoveSelectedVertex();
+              }}
+              type="button"
+            >
+              Remove Vertex
+            </button>
+          ) : null}
         </div>
 
         {selectedFeature ? (
@@ -1121,8 +1720,11 @@ export function MapPage() {
           </div>
         ) : (
           <p className="muted helper-text">
-            Choose a draw tool, click on the canvas, and finish the draft shape to create this feature
-            at {` ${formatWorldTick(createFeatureForm.effectiveTick)}`}.
+            Using the {toolLabels[activeFeatureForm.featureRole]} preset. Click on the canvas
+            {activeFeatureForm.featureKind === 'marker'
+              ? ' to place a feature'
+              : ' to place draft points, then finish the shape'}
+            {` at ${formatWorldTick(createFeatureForm.effectiveTick)}.`}
           </p>
         )}
       </form>
@@ -1135,6 +1737,71 @@ export function MapPage() {
       : inspectorMode === 'anchor'
         ? 'Place Links'
         : 'Feature Draft';
+  const overlayMetrics = useMemo(() => {
+    if (!selectedMap || !viewport) {
+      return null;
+    }
+
+    const featureLabel = getFeatureLabelMetrics(viewport, selectedMap);
+    const anchorLabel = getAnchorLabelMetrics(viewport, selectedMap);
+
+    return {
+      featureHandle: getFeatureHandleMetrics(viewport, selectedMap),
+      anchorBadge: getAnchorBadgeMetrics(viewport, selectedMap),
+      draft: getDraftOverlayMetrics(viewport, selectedMap),
+      featureLabel,
+      anchorLabel,
+      featureLabelStyle: createFeatureLabelStyle(featureLabel.fontSize, featureLabel.strokeWidth),
+      anchorLabelStyle: createAnchorLabelStyle(anchorLabel.fontSize, anchorLabel.strokeWidth),
+    };
+  }, [selectedMap, viewport]);
+  const topBarConfig = useMemo(
+    () => ({
+      actions: [
+        {
+          id: 'open-map-settings',
+          label: activeDrawer === 'admin' ? 'Close Maps & Settings' : 'Open Maps & Settings',
+          onSelect: openMapSettings,
+          variant: 'secondary' as const,
+        },
+        {
+          id: 'new-map',
+          label: 'New Map',
+          onSelect: openCreateMapAdmin,
+          variant: 'primary' as const,
+        },
+        {
+          id: 'edit-map',
+          label: 'Edit Map',
+          onSelect: openEditMapAdmin,
+          variant: 'secondary' as const,
+          disabled: selectedMap === null,
+        },
+      ],
+      confirmNavigation: confirmMapNavigation,
+      isBusy: isLoading || isSavingMap,
+      modeLabel:
+        activeDrawer === 'admin' && adminMode === 'create'
+          ? 'Creating Map'
+          : activeDrawer === 'admin' && adminMode === 'edit'
+            ? 'Editing Map'
+            : 'Map Workspace',
+      selectionLabel: selectedMap ? `Map: ${selectedMap.name}` : 'No map selected',
+    }),
+    [
+      activeDrawer,
+      adminMode,
+      confirmMapNavigation,
+      isLoading,
+      isSavingMap,
+      openCreateMapAdmin,
+      openEditMapAdmin,
+      openMapSettings,
+      selectedMap,
+    ],
+  );
+
+  useTopBarControls(topBarConfig);
 
   return (
     <main className={styles['maps-layout']}>
@@ -1155,8 +1822,36 @@ export function MapPage() {
                 onMouseUp={handleMouseUp}
                 viewBox={`${viewport.x} ${viewport.y} ${viewport.width} ${viewport.height}`}
               >
+                <defs>
+                  <pattern
+                    height={1000}
+                    id="atlas-grid"
+                    patternUnits="userSpaceOnUse"
+                    width={1000}
+                  >
+                    <rect
+                      fill={themeVisuals.gridFill}
+                      height={1000}
+                      width={1000}
+                    />
+                    <path
+                      d="M 1000 0 L 0 0 0 1000"
+                      fill="none"
+                      stroke={themeVisuals.gridStroke}
+                      strokeWidth={25}
+                    />
+                  </pattern>
+                </defs>
+
                 <rect
-                  fill="rgba(20, 26, 34, 0.92)"
+                  fill={themeVisuals.canvasFill}
+                  height={selectedMap.canvasHeight}
+                  width={selectedMap.canvasWidth}
+                  x={0}
+                  y={0}
+                />
+                <rect
+                  fill={themeVisuals.canvasOverlay}
                   height={selectedMap.canvasHeight}
                   width={selectedMap.canvasWidth}
                   x={0}
@@ -1172,28 +1867,27 @@ export function MapPage() {
                     x={0}
                     y={0}
                   />
-                ) : (
-                  <>
-                    <defs>
-                      <pattern
-                        height={1000}
-                        id="atlas-grid"
-                        patternUnits="userSpaceOnUse"
-                        width={1000}
-                      >
-                        <path
-                          d="M 1000 0 L 0 0 0 1000"
-                          fill="none"
-                          stroke="rgba(255,255,255,0.06)"
-                          strokeWidth={25}
-                        />
-                      </pattern>
-                    </defs>
-                    <rect fill="url(#atlas-grid)" height={selectedMap.canvasHeight} width={selectedMap.canvasWidth} />
-                  </>
-                )}
+                ) : null}
 
-                {mapFeatures.map((feature) => {
+                {showGrid ? (
+                  <rect
+                    fill="url(#atlas-grid)"
+                    height={selectedMap.canvasHeight}
+                    width={selectedMap.canvasWidth}
+                  />
+                ) : null}
+
+                <rect
+                  fill="none"
+                  height={selectedMap.canvasHeight}
+                  stroke={themeVisuals.frameStroke}
+                  strokeWidth={40}
+                  width={selectedMap.canvasWidth}
+                  x={0}
+                  y={0}
+                />
+
+                {visibleMapFeatures.map((feature) => {
                   const geometry =
                     selectedFeatureId === feature.id && selectedFeatureGeometry
                       ? selectedFeatureGeometry
@@ -1207,13 +1901,24 @@ export function MapPage() {
                         event.stopPropagation();
                         handleFeatureSelect(feature.id);
                       }}
+                      onDoubleClick={(event) => {
+                        if (selectedFeatureId !== feature.id || !selectedMap || !viewport || !svgRef.current) {
+                          return;
+                        }
+
+                        event.stopPropagation();
+                        handleInsertSelectedVertex(
+                          resolveCanvasPoint(getSvgPoint(svgRef.current, event, viewport)),
+                        );
+                      }}
                     >
-                      {renderFeatureShape(feature, geometry, selectedFeatureId === feature.id)}
+                      {renderFeatureShape(feature, geometry, selectedFeatureId === feature.id, viewport, selectedMap)}
                       {feature.label ? (
                         <text
                           className={styles.featureLabel}
+                          style={overlayMetrics?.featureLabelStyle}
                           x={featurePoints[0]?.x ?? 0}
-                          y={(featurePoints[0]?.y ?? 0) - 180}
+                          y={(featurePoints[0]?.y ?? 0) - (overlayMetrics?.featureLabel.yOffset ?? 0)}
                         >
                           {feature.label}
                         </text>
@@ -1225,18 +1930,23 @@ export function MapPage() {
                               className={styles.handle}
                               cx={point.x}
                               cy={point.y}
-                              fill="#fff3dd"
                               onMouseDown={(event) => {
                                 event.stopPropagation();
                                 setDragVertex({
                                   featureId: feature.id,
                                   pointIndex: index,
                                 });
+                                setSelectedVertexIndex(index);
                                 setLiveGeometry(geometry);
                               }}
-                              r={180}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setSelectedVertexIndex(index);
+                              }}
+                              r={overlayMetrics?.featureHandle.radius ?? 0}
                               stroke="#0b1117"
-                              strokeWidth={60}
+                              strokeWidth={overlayMetrics?.featureHandle.strokeWidth ?? 0}
+                              fill={selectedVertexIndex === index ? '#8de1ff' : '#fff3dd'}
                             />
                           ))
                         : null}
@@ -1244,38 +1954,45 @@ export function MapPage() {
                   );
                 })}
 
-                {selectedMapAnchors.map((anchor) => (
+                {layerVisibility.anchors
+                  ? selectedMapAnchors.map((anchor) => (
                   <g key={anchor.id}>
                     <circle
                       cx={anchor.x}
                       cy={anchor.y}
                       fill="#6fd1bf"
                       opacity={0.9}
-                      r={160}
+                      r={overlayMetrics?.anchorBadge.radius ?? 0}
                       stroke="#081016"
-                      strokeWidth={70}
+                      strokeWidth={overlayMetrics?.anchorBadge.strokeWidth ?? 0}
                     />
-                    <text className={styles.anchorLabel} x={anchor.x + 180} y={anchor.y - 180}>
+                    <text
+                      className={styles.anchorLabel}
+                      style={overlayMetrics?.anchorLabelStyle}
+                      x={anchor.x + (overlayMetrics?.anchorLabel.xOffset ?? 0)}
+                      y={anchor.y - (overlayMetrics?.anchorLabel.yOffset ?? 0)}
+                    >
                       {anchor.location.name}
                     </text>
                   </g>
-                ))}
+                    ))
+                  : null}
 
                 {draftPoints.length > 0 ? (
                   <g>
-                    {tool === 'path' ? (
+                    {currentDraftFeatureKind === 'path' ? (
                       <polyline
                         fill="none"
                         points={draftPoints.map((point) => `${point.x},${point.y}`).join(' ')}
                         stroke="#8de1ff"
-                        strokeWidth={90}
+                        strokeWidth={overlayMetrics?.draft.strokeWidth ?? 0}
                       />
-                    ) : tool === 'polygon' || tool === 'border' ? (
+                    ) : currentDraftFeatureKind === 'polygon' || currentDraftFeatureKind === 'border' ? (
                       <polygon
                         fill="rgba(141, 225, 255, 0.14)"
                         points={draftPoints.map((point) => `${point.x},${point.y}`).join(' ')}
                         stroke="#8de1ff"
-                        strokeWidth={90}
+                        strokeWidth={overlayMetrics?.draft.strokeWidth ?? 0}
                       />
                     ) : null}
                     {draftPoints.map((point, index) => (
@@ -1284,7 +2001,7 @@ export function MapPage() {
                         cx={point.x}
                         cy={point.y}
                         fill="#8de1ff"
-                        r={120}
+                        r={overlayMetrics?.draft.pointRadius ?? 0}
                       />
                     ))}
                   </g>
@@ -1300,19 +2017,21 @@ export function MapPage() {
           <div className={styles.overlayLayer}>
             <div className={styles.toolbarRegion}>
               <div className={styles.toolbar}>
-                <button
-                  aria-expanded={activeDrawer === 'admin'}
-                  className={clsx(styles.toolButton, activeDrawer === 'admin' && styles.toolButtonActive)}
-                  data-map-wheel-passthrough="true"
-                  onClick={handleAdminDrawerToggle}
-                  type="button"
-                >
-                  Maps & Settings
-                </button>
                 <span className={styles.workspaceLabel}>
                   {selectedMap ? selectedMap.name : 'Map Workspace'}
                 </span>
-                {(['select', 'pan', 'marker', 'path', 'polygon', 'border', 'anchor'] as Tool[]).map((item) => (
+                {([
+                  'select',
+                  'pan',
+                  'custom',
+                  'settlement',
+                  'river',
+                  'road',
+                  'mountainRange',
+                  'forest',
+                  'regionBorder',
+                  'anchor',
+                ] as MapTool[]).map((item) => (
                   <button
                     key={item}
                     className={clsx(styles.toolButton, tool === item && styles.toolButtonActive)}
@@ -1325,6 +2044,24 @@ export function MapPage() {
                     {toolLabels[item]}
                   </button>
                 ))}
+                <button
+                  className="secondary-button"
+                  data-map-wheel-passthrough="true"
+                  disabled={editorHistory.past.length === 0}
+                  onClick={handleUndo}
+                  type="button"
+                >
+                  Undo
+                </button>
+                <button
+                  className="secondary-button"
+                  data-map-wheel-passthrough="true"
+                  disabled={editorHistory.future.length === 0}
+                  onClick={handleRedo}
+                  type="button"
+                >
+                  Redo
+                </button>
                 <button
                   className="secondary-button"
                   data-map-wheel-passthrough="true"
@@ -1341,7 +2078,54 @@ export function MapPage() {
                 >
                   Zoom Out
                 </button>
-                {isDraftCapableTool(tool) ? (
+                <button
+                  className="secondary-button"
+                  data-map-wheel-passthrough="true"
+                  onClick={handleResetViewport}
+                  type="button"
+                >
+                  Fit Map
+                </button>
+                <button
+                  className="secondary-button"
+                  data-map-wheel-passthrough="true"
+                  disabled={!selectedFeatureGeometry}
+                  onClick={handleCenterOnSelection}
+                  type="button"
+                >
+                  Center Selection
+                </button>
+                <button
+                  className={clsx(styles.toolButton, showGrid && styles.toolButtonActive)}
+                  data-map-wheel-passthrough="true"
+                  onClick={() => {
+                    setShowGrid((current) => !current);
+                  }}
+                  type="button"
+                >
+                  Grid
+                </button>
+                <button
+                  className={clsx(styles.toolButton, snapToGrid && styles.toolButtonActive)}
+                  data-map-wheel-passthrough="true"
+                  onClick={() => {
+                    setSnapToGrid((current) => !current);
+                  }}
+                  type="button"
+                >
+                  Snap
+                </button>
+                {selectedFeatureId !== null ? (
+                  <button
+                    className="secondary-button"
+                    data-map-wheel-passthrough="true"
+                    onClick={handleClearSelection}
+                    type="button"
+                  >
+                    Clear Selection
+                  </button>
+                ) : null}
+                {isDraftCapableTool(tool, createFeatureForm.featureKind) ? (
                   <>
                     <button
                       className="secondary-button"
@@ -1359,11 +2143,11 @@ export function MapPage() {
                       data-map-wheel-passthrough="true"
                       disabled={draftPoints.length === 0}
                       onClick={() => {
-                        setDraftPoints([]);
+                        resetEditorState({ selectedFeatureId: null });
                       }}
                       type="button"
                     >
-                      Clear Draft
+                      Cancel Draft
                     </button>
                   </>
                 ) : null}
@@ -1378,7 +2162,7 @@ export function MapPage() {
                       <button
                         className="secondary-button"
                         onClick={() => {
-                          setActiveDrawer('none');
+                          openMapSettings();
                         }}
                         type="button"
                       >
@@ -1406,9 +2190,7 @@ export function MapPage() {
                               <button
                                 className={clsx('entity-list-item', selectedMapId === map.id && 'active')}
                                 onClick={() => {
-                                  setSelectedMapId(map.id);
-                                  setSelectedFeatureId(null);
-                                  setDraftPoints([]);
+                                  handleMapRecordSelect(map.id);
                                 }}
                                 type="button"
                               >
@@ -1416,6 +2198,7 @@ export function MapPage() {
                                   <strong>{map.name}</strong>
                                   <div className="entity-list-pills">
                                     <span className="pill small">{map.displayKind}</span>
+                                    <span className="pill small">{themePresetLabels[map.themePreset]}</span>
                                   </div>
                                 </div>
                                 <span>{map.focusLocation?.name ?? 'Whole world'}</span>
@@ -1425,7 +2208,61 @@ export function MapPage() {
                         </ul>
                       </div>
 
-                      {selectedMap ? (
+                      <div className="linked-card">
+                        <p className="card-title">Display & Layers</p>
+                        <div className={styles.layerToggleGrid}>
+                          <label className={styles.layerToggle}>
+                            <input
+                              checked={showGrid}
+                              onChange={(event) => {
+                                setShowGrid(event.target.checked);
+                              }}
+                              type="checkbox"
+                            />
+                            <span>Show grid</span>
+                          </label>
+                          <label className={styles.layerToggle}>
+                            <input
+                              checked={snapToGrid}
+                              onChange={(event) => {
+                                setSnapToGrid(event.target.checked);
+                              }}
+                              type="checkbox"
+                            />
+                            <span>Snap to grid</span>
+                          </label>
+                          {(['anchors', 'custom', 'settlement', 'river', 'road', 'mountainRange', 'forest', 'regionBorder'] as Array<keyof LayerVisibility>).map((layerKey) => (
+                            <label className={styles.layerToggle} key={layerKey}>
+                              <input
+                                checked={layerVisibility[layerKey]}
+                                onChange={(event) => {
+                                  setLayerVisibility((current) => ({
+                                    ...current,
+                                    [layerKey]: event.target.checked,
+                                  }));
+                                }}
+                                type="checkbox"
+                              />
+                              <span>
+                                {layerKey === 'anchors'
+                                  ? 'Place links'
+                                  : toolLabels[layerKey]}
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      {adminMode === 'browse' ? (
+                        <div className="linked-card">
+                          <p className="card-title">Map Actions</p>
+                          <p className={`muted helper-text ${styles.panelText}`}>
+                            Use the top bar to start a new map or open the selected map in edit mode.
+                          </p>
+                        </div>
+                      ) : null}
+
+                      {adminMode === 'edit' && selectedMap ? (
                         <div className="linked-card">
                           <div className={clsx('entity-list-heading', styles.drawerSectionHeader)}>
                             <p className="card-title">Selected Map Settings</p>
@@ -1457,6 +2294,25 @@ export function MapPage() {
                               >
                                 <option value="vector">Vector</option>
                                 <option value="image">Image-backed</option>
+                              </select>
+                            </label>
+
+                            <label>
+                              <span>Theme</span>
+                              <select
+                                onChange={(event) => {
+                                  setEditMapForm((current) => ({
+                                    ...current,
+                                    themePreset: event.target.value as ThemePreset,
+                                  }));
+                                }}
+                                value={editMapForm.themePreset}
+                              >
+                                {(['parchment', 'terrain', 'political'] as ThemePreset[]).map((themePreset) => (
+                                  <option key={themePreset} value={themePreset}>
+                                    {themePresetLabels[themePreset]}
+                                  </option>
+                                ))}
                               </select>
                             </label>
 
@@ -1505,16 +2361,34 @@ export function MapPage() {
                             {editMapForm.displayKind === 'image' ? (
                               <label>
                                 <span>Image File Path</span>
-                                <input
-                                  onChange={(event) => {
+                                <input readOnly value={editMapForm.imageAssetPath} />
+                              </label>
+                            ) : null}
+
+                            {editMapForm.displayKind === 'image' ? (
+                              <div className="button-row">
+                                <button
+                                  className="secondary-button"
+                                  onClick={() => {
+                                    void handlePickMapImage('edit');
+                                  }}
+                                  type="button"
+                                >
+                                  Choose Image
+                                </button>
+                                <button
+                                  className="secondary-button"
+                                  onClick={() => {
                                     setEditMapForm((current) => ({
                                       ...current,
-                                      imageAssetPath: event.target.value,
+                                      imageAssetPath: '',
                                     }));
                                   }}
-                                  value={editMapForm.imageAssetPath}
-                                />
-                              </label>
+                                  type="button"
+                                >
+                                  Clear
+                                </button>
+                              </div>
                             ) : null}
 
                             <div className={styles.miniGrid}>
@@ -1555,7 +2429,8 @@ export function MapPage() {
                         </div>
                       ) : null}
 
-                      <div className="linked-card">
+                      {adminMode === 'create' ? (
+                        <div className="linked-card">
                         <p className="card-title">Create Map</p>
                         <form className="form" onSubmit={handleCreateMap}>
                           <label>
@@ -1583,6 +2458,25 @@ export function MapPage() {
                             >
                               <option value="vector">Vector</option>
                               <option value="image">Image-backed</option>
+                            </select>
+                          </label>
+
+                          <label>
+                            <span>Theme</span>
+                            <select
+                              onChange={(event) => {
+                                setCreateMapForm((current) => ({
+                                  ...current,
+                                  themePreset: event.target.value as ThemePreset,
+                                }));
+                              }}
+                              value={createMapForm.themePreset}
+                            >
+                              {(['parchment', 'terrain', 'political'] as ThemePreset[]).map((themePreset) => (
+                                <option key={themePreset} value={themePreset}>
+                                  {themePresetLabels[themePreset]}
+                                </option>
+                              ))}
                             </select>
                           </label>
 
@@ -1630,17 +2524,38 @@ export function MapPage() {
                             <label>
                               <span>Image File Path</span>
                               <input
-                                onChange={(event) => {
-                                  setCreateMapForm((current) => ({
-                                    ...current,
-                                    imageAssetPath: event.target.value,
-                                  }));
-                                }}
                                 placeholder="/absolute/path/to/render.png"
+                                readOnly
                                 required
                                 value={createMapForm.imageAssetPath}
                               />
                             </label>
+                          ) : null}
+
+                          {createMapForm.displayKind === 'image' ? (
+                            <div className="button-row">
+                              <button
+                                className="secondary-button"
+                                onClick={() => {
+                                  void handlePickMapImage('create');
+                                }}
+                                type="button"
+                              >
+                                Choose Image
+                              </button>
+                              <button
+                                className="secondary-button"
+                                onClick={() => {
+                                  setCreateMapForm((current) => ({
+                                    ...current,
+                                    imageAssetPath: '',
+                                  }));
+                                }}
+                                type="button"
+                              >
+                                Clear
+                              </button>
+                            </div>
                           ) : null}
 
                           <div className={styles.miniGrid}>
@@ -1678,7 +2593,8 @@ export function MapPage() {
                             {isSavingMap ? 'Creating...' : 'Create Map'}
                           </button>
                         </form>
-                      </div>
+                        </div>
+                      ) : null}
                     </div>
                   </Panel>
                 </div>
@@ -1841,6 +2757,11 @@ export function MapPage() {
           <span className="pill subtle">Tick {formatWorldTick(tick, 'short')}</span>
           <span className="pill subtle">{mapFeatures.length} active features</span>
           <span className="pill subtle">{selectedMapAnchors.length} place links</span>
+          {selectedMap ? (
+            <span className="pill subtle">{themePresetLabels[selectedMap.themePreset]} theme</span>
+          ) : null}
+          {showGrid ? <span className="pill subtle">Grid on</span> : null}
+          {snapToGrid ? <span className="pill subtle">Snap on</span> : null}
           {tool === 'anchor' ? (
             <span className="pill highlight">Place link target: {selectedAnchorLocationName}</span>
           ) : null}

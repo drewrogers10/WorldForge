@@ -43,6 +43,13 @@
       "when": 1774121491900,
       "tag": "0005_add-maps-events-links",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1774152000000,
+      "tag": "0006_assisted-fantasy-atlas",
+      "breakpoints": true
     }
   ]
 }

@@ -1,18 +1,24 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import type { WorkspaceView } from '@renderer/lib/forms';
 import {
   buildSidebarTreeNodes,
-  isSidebarFolderExpanded,
+  isSidebarNodeExpanded,
   resolveSidebarSelection,
-  type SidebarFolderExpansionState,
-  type SidebarFolderId,
+  type SidebarExpansionState,
+  type SidebarExpandableId,
   type SidebarSelectableNode,
 } from '@renderer/lib/sidebarTree';
 import { appCopy } from '@renderer/lib/copy';
+import {
+  isVisibleTopBarAction,
+  type RegisteredTopBarConfig,
+  type TopBarActionSpec,
+} from '@renderer/lib/topBar';
 import { Sidebar } from './Sidebar';
 import { TemporalDock } from './TemporalDock';
 import { ThemeSwitcher } from './ThemeSwitcher';
+import { TopBarControlsProvider } from './TopBarControls';
 import { useEntityStore } from '@renderer/store/entityStore';
 import { useSidebarStore } from '@renderer/store/sidebarStore';
 import { useTemporalStore } from '@renderer/store/temporalStore';
@@ -24,9 +30,10 @@ export function AppShell() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isCompactShell, setIsCompactShell] = useState(false);
   const [isSidebarDrawerOpen, setIsSidebarDrawerOpen] = useState(false);
-  const [sidebarExpansionState, setSidebarExpansionState] = useState<SidebarFolderExpansionState>({});
-  const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
+  const [sidebarExpansionState, setSidebarExpansionState] = useState<SidebarExpansionState>({});
   const [shellTopHeight, setShellTopHeight] = useState<string | null>(null);
+  const [registeredTopBarConfig, setRegisteredTopBarConfig] =
+    useState<RegisteredTopBarConfig | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const topbarRef = useRef<HTMLDivElement | null>(null);
@@ -68,6 +75,18 @@ export function AppShell() {
   } = useEntityStore();
 
   const { errorMessage, isRefreshing, setIsRefreshing } = useUiStore();
+
+  const clearRegisteredTopBarConfig = useCallback(() => {
+    setRegisteredTopBarConfig(null);
+  }, []);
+
+  const confirmNavigation = useCallback(() => {
+    if (!registeredTopBarConfig?.confirmNavigation) {
+      return true;
+    }
+
+    return registeredTopBarConfig.confirmNavigation();
+  }, [registeredTopBarConfig]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(max-width: 1180px)');
@@ -174,17 +193,17 @@ export function AppShell() {
     },
   });
 
-  const handleSidebarFolderToggle = (folderId: SidebarFolderId) => {
+  const handleSidebarToggleExpand = (nodeId: SidebarExpandableId) => {
     setSidebarExpansionState((current) => ({
       ...current,
-      [folderId]: !isSidebarFolderExpanded(folderId, activeView, current),
+      [nodeId]: !isSidebarNodeExpanded(nodeId, activeView, current),
     }));
   };
 
   const handleSidebarNodeSelect = (node: SidebarSelectableNode) => {
     const selection = resolveSidebarSelection(node);
 
-    if (!selection) {
+    if (!confirmNavigation()) {
       return;
     }
 
@@ -212,6 +231,36 @@ export function AppShell() {
     setIsSidebarDrawerOpen(false);
   };
 
+  const visibleTopBarActions = useMemo(
+    () => (registeredTopBarConfig?.actions ?? []).filter(isVisibleTopBarAction),
+    [registeredTopBarConfig],
+  );
+  const hasFunctionBarContent = Boolean(
+    visibleTopBarActions.length > 0 ||
+      registeredTopBarConfig?.modeLabel ||
+      registeredTopBarConfig?.selectionLabel ||
+      registeredTopBarConfig?.isBusy,
+  );
+  const topBarControlsValue = useMemo(
+    () => ({
+      clearConfig: clearRegisteredTopBarConfig,
+      setConfig: setRegisteredTopBarConfig,
+    }),
+    [clearRegisteredTopBarConfig],
+  );
+
+  const getTopBarActionClassName = (action: TopBarActionSpec): string => {
+    if (action.variant === 'danger') {
+      return 'danger-button';
+    }
+
+    if (action.variant === 'secondary') {
+      return 'secondary-button';
+    }
+
+    return '';
+  };
+
   const sidebarToggleLabel = isCompactShell
     ? isSidebarDrawerOpen
       ? 'Close navigation'
@@ -224,7 +273,6 @@ export function AppShell() {
     styles['app-shell'],
     !isCompactShell && isSidebarCollapsed ? styles['sidebar-collapsed'] : '',
     isCompactShell && isSidebarDrawerOpen ? styles['sidebar-drawer-open'] : '',
-    isTimelineExpanded ? styles['timeline-expanded'] : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -252,93 +300,133 @@ export function AppShell() {
     .join(' ');
 
   return (
-    <div className={shellClassName} style={shellStyle}>
-      {isCompactShell && isSidebarDrawerOpen && (
-        <button
-          aria-label="Close navigation"
-          className={styles['shell-scrim']}
-          onClick={() => setIsSidebarDrawerOpen(false)}
-          type="button"
-        />
-      )}
+    <TopBarControlsProvider value={topBarControlsValue}>
+      <div className={shellClassName} style={shellStyle}>
+        {isCompactShell && isSidebarDrawerOpen && (
+          <button
+            aria-label="Close navigation"
+            className={styles['shell-scrim']}
+            onClick={() => setIsSidebarDrawerOpen(false)}
+            type="button"
+          />
+        )}
 
-      <div className={styles['sidebar-slot']}>
-        <Sidebar
-          isLoading={isSidebarLoading}
-          nodes={sidebarNodes}
-          onFolderToggle={handleSidebarFolderToggle}
-          onNodeSelect={handleSidebarNodeSelect}
-        />
-      </div>
+        <div className={styles['sidebar-slot']}>
+          <Sidebar
+            isLoading={isSidebarLoading}
+            nodes={sidebarNodes}
+            onNodeToggle={handleSidebarToggleExpand}
+            onNodeSelect={handleSidebarNodeSelect}
+          />
+        </div>
 
-      <div className={styles['topbar-slot']}>
-        <div
-          aria-label="Application functions"
-          className={styles['app-topbar']}
-          ref={topbarRef}
-          role="toolbar"
-        >
-          <div className={styles['topbar-leading']}>
-            <div className={styles['topbar-summary']}>
-              <p className="eyebrow">{appCopy.brand}</p>
-              <p className={styles['topbar-title']}>{appCopy.shellName}</p>
+        <div className={styles['topbar-slot']}>
+          <div
+            aria-label="Application functions"
+            className={styles['app-topbar']}
+            ref={topbarRef}
+            role="toolbar"
+          >
+            <div className={styles['topbar-leading']}>
+              <div className={styles['topbar-summary']}>
+                <p className="eyebrow">{appCopy.brand}</p>
+                <p className={styles['topbar-title']}>{appCopy.shellName}</p>
+              </div>
+
+              <div className={styles['topbar-actions']}>
+                <ThemeSwitcher />
+                <button
+                  className="secondary-button"
+                  onClick={handleSidebarToggle}
+                  type="button"
+                >
+                  {sidebarToggleLabel}
+                </button>
+                <button
+                  className="secondary-button"
+                  disabled={isRefreshing}
+                  onClick={() => { void handleRefresh(); }}
+                  type="button"
+                >
+                  {isRefreshing ? 'Refreshing...' : 'Refresh data'}
+                </button>
+              </div>
             </div>
 
-            <div className={styles['topbar-actions']}>
-              <ThemeSwitcher />
-              <button
-                className="secondary-button"
-                onClick={handleSidebarToggle}
-                type="button"
-              >
-                {sidebarToggleLabel}
-              </button>
-              <button
-                className="secondary-button"
-                disabled={isRefreshing}
-                onClick={() => { void handleRefresh(); }}
-                type="button"
-              >
-                {isRefreshing ? 'Refreshing...' : 'Refresh data'}
-              </button>
-            </div>
+            {hasFunctionBarContent ? (
+              <div className={styles['function-bar-slot']}>
+                <div className={styles['function-bar']}>
+                  <div className={styles['function-bar-trailing']}>
+                    {registeredTopBarConfig?.modeLabel ? (
+                      <span className={styles['function-bar-meta-pill']}>
+                        {registeredTopBarConfig.modeLabel}
+                      </span>
+                    ) : null}
+                    {registeredTopBarConfig?.selectionLabel ? (
+                      <span className={styles['function-bar-meta-pill']}>
+                        {registeredTopBarConfig.selectionLabel}
+                      </span>
+                    ) : null}
+                    {registeredTopBarConfig?.isBusy ? (
+                      <span className={styles['function-bar-meta-pill']}>Working</span>
+                    ) : null}
+
+                    {visibleTopBarActions.length > 0 ? (
+                      <div className={styles['function-bar-actions']}>
+                        {visibleTopBarActions.map((action) => (
+                          <button
+                            className={getTopBarActionClassName(action)}
+                            disabled={action.disabled}
+                            key={action.id}
+                            onClick={() => {
+                              void action.onSelect();
+                            }}
+                            type="button"
+                          >
+                            {action.label}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
-
-          <div aria-hidden="true" className={styles['function-bar-slot']} />
         </div>
-      </div>
 
-      <div className={styles['timeline-slot']}>
-        <TemporalDock
-          committedTick={committedTick}
-          onExpandedChange={setIsTimelineExpanded}
-          onTimelineCommit={setCommittedTick}
-          onTimelineJump={handleTimelineJump}
-          onTimelinePreview={setPreviewTick}
-          previewTick={previewTick}
-          timelineAnchors={timelineAnchors}
-          timelineBounds={timelineBounds}
-        />
-      </div>
-
-      <main className={appMainClassName}>
-        {errorMessage && <div className="status error">{errorMessage}</div>}
-
-        <div className={appBodyClassName}>
-          <AnimatePresence mode="wait">
-            <motion.div
-              className={routeFrameClassName}
-              key={location.pathname}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.99, y: -5 }}
-              initial={{ opacity: 0, scale: 0.99, y: 5 }}
-              transition={{ duration: 0.15, ease: 'easeOut' }}
-            >
-              <Outlet />
-            </motion.div>
-          </AnimatePresence>
+        <div className={styles['timeline-slot']}>
+          <TemporalDock
+            committedTick={committedTick}
+            isCompact={isCompactShell}
+            onTimelineCommit={setCommittedTick}
+            onTimelineJump={handleTimelineJump}
+            onTimelinePreview={setPreviewTick}
+            previewTick={previewTick}
+            timelineAnchors={timelineAnchors}
+            timelineBounds={timelineBounds}
+          />
         </div>
-      </main>
-    </div>
+
+        <main className={appMainClassName}>
+          {errorMessage && <div className="status error">{errorMessage}</div>}
+
+          <div className={appBodyClassName}>
+            <AnimatePresence mode="wait">
+              <motion.div
+                className={routeFrameClassName}
+                key={location.pathname}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.99, y: -5 }}
+                initial={{ opacity: 0, scale: 0.99, y: 5 }}
+                transition={{ duration: 0.15, ease: 'easeOut' }}
+              >
+                <Outlet />
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </main>
+      </div>
+    </TopBarControlsProvider>
   );
 }

@@ -9,6 +9,12 @@ import { ItemPage } from '@renderer/features/items/ItemPage';
 import { MapPage } from '@renderer/features/maps/MapPage';
 import { OrganizationsPage } from '@renderer/features/entities/OrganizationsPage';
 import { PowersPage } from '@renderer/features/entities/PowersPage';
+import { ManuscriptPage } from '@renderer/features/sections/ManuscriptPage';
+import { PlotPage } from '@renderer/features/sections/PlotPage';
+import { TheoriesPage } from '@renderer/features/sections/TheoriesPage';
+import { WorldElementsPage } from '@renderer/features/sections/WorldElementsPage';
+import { WritingIdeasPage } from '@renderer/features/sections/WritingIdeasPage';
+import { WritingPage } from '@renderer/features/sections/WritingPage';
 import { useTemporalStore } from '@renderer/store/temporalStore';
 
 export default function App() {
@@ -24,6 +30,9 @@ export default function App() {
         <Route path="/" element={<AppShell />}>
           <Route index element={<Navigate to="/overview" replace />} />
           <Route path="overview" element={<OverviewPage />} />
+          <Route path="world-elements" element={<WorldElementsPage />} />
+          <Route path="theories" element={<TheoriesPage />} />
+          <Route path="writing" element={<WritingPage />} />
           <Route path="people" element={<CharacterPage />} />
           <Route path="places" element={<LocationPage />} />
           <Route path="maps" element={<MapPage />} />
@@ -31,6 +40,9 @@ export default function App() {
           <Route path="powers" element={<PowersPage />} />
           <Route path="events" element={<EventPage />} />
           <Route path="organizations" element={<OrganizationsPage />} />
+          <Route path="manuscript" element={<ManuscriptPage />} />
+          <Route path="plot" element={<PlotPage />} />
+          <Route path="writing-ideas" element={<WritingIdeasPage />} />
           <Route path="*" element={<Navigate to="/overview" replace />} />
         </Route>
       </Routes>
