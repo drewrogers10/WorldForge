@@ -74,7 +74,7 @@ export function TemporalDock({
       <div className={styles['temporal-dock-content']}>
         <div className={styles['temporal-dock-summary']}>
           <div className={styles['temporal-dock-copy']}>
-            <p className="eyebrow">World State</p>
+            <p className="eyebrow">Timeline</p>
             <p className={styles['temporal-dock-title']}>Viewing {sliderLabel}</p>
             <p className={`muted helper-text ${styles['temporal-dock-hint']}`}>
               Committed {committedLabel}
@@ -89,7 +89,7 @@ export function TemporalDock({
 
         <div className={styles['temporal-dock-body']}>
           <div className={styles['temporal-dock-meta']}>
-            <span>Scrub history</span>
+            <span>Move through time</span>
             <span>{sliderMin === sliderMax ? 'Single point' : boundsLabel}</span>
           </div>
 
@@ -98,7 +98,7 @@ export function TemporalDock({
           </p>
 
           <label className={styles['temporal-dock-anchor']}>
-            <span>Jump to anchor</span>
+            <span>Jump to saved point</span>
             <select
               disabled={timelineAnchors.length === 0}
               onChange={(event) => {
@@ -110,7 +110,7 @@ export function TemporalDock({
               }}
               value=""
             >
-              <option value="">Select an anchor</option>
+              <option value="">Select a saved point</option>
               {timelineAnchors.map((anchor) => (
                 <option key={anchor.tick} value={String(anchor.tick)}>
                   {anchor.label} · {anchor.changeCount} changes

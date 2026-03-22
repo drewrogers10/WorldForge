@@ -58,6 +58,16 @@ type DragVertexState = {
   pointIndex: number;
 };
 
+const toolLabels: Record<Tool, string> = {
+  select: 'Select',
+  pan: 'Pan',
+  marker: 'Marker',
+  path: 'Path',
+  polygon: 'Polygon',
+  border: 'Boundary',
+  anchor: 'Place Link',
+};
+
 function createEmptyMapForm(): MapFormState {
   return {
     name: '',
@@ -838,9 +848,9 @@ export function MapPage() {
   return (
     <main className={styles['maps-layout']}>
       <div className={styles.stack}>
-        <Panel title="Atlas Maps">
+        <Panel title="Maps">
           <p className={`muted helper-text ${styles.panelText}`}>
-            Build vector maps, image-backed renderings, and location anchors that keep them aligned.
+            Create vector maps or image-backed maps and link places to positions on each map.
           </p>
 
           {isLoading ? <p className="muted">Loading maps...</p> : null}
@@ -863,7 +873,7 @@ export function MapPage() {
                       <span className="pill small">{map.displayKind}</span>
                     </div>
                   </div>
-                  <span>{map.focusLocation?.name ?? 'World scope'}</span>
+                  <span>{map.focusLocation?.name ?? 'Whole world'}</span>
                 </button>
               </li>
             ))}
@@ -911,7 +921,7 @@ export function MapPage() {
                 }}
                 value={createMapForm.focusLocationId}
               >
-                <option value="">World scope</option>
+                <option value="">Whole world</option>
                 {locations.map((location) => (
                   <option key={location.id} value={location.id}>
                     {location.name}
@@ -942,7 +952,7 @@ export function MapPage() {
 
             {createMapForm.displayKind === 'image' ? (
               <label>
-                <span>Image Asset Path</span>
+                <span>Image File Path</span>
                 <input
                   onChange={(event) => {
                     setCreateMapForm((current) => ({
@@ -995,7 +1005,7 @@ export function MapPage() {
         </Panel>
       </div>
 
-      <Panel className={canvasPanelClassName} title={selectedMap ? selectedMap.name : 'Atlas Canvas'}>
+      <Panel className={canvasPanelClassName} title={selectedMap ? selectedMap.name : 'Map Canvas'}>
         <div className={styles.canvasShell}>
           <div className={styles.toolbar}>
             {(['select', 'pan', 'marker', 'path', 'polygon', 'border', 'anchor'] as Tool[]).map((item) => (
@@ -1007,7 +1017,7 @@ export function MapPage() {
                 }}
                 type="button"
               >
-                {item}
+                {toolLabels[item]}
               </button>
             ))}
             <button className="secondary-button" onClick={() => handleZoom(0.8)} type="button">
@@ -1198,10 +1208,10 @@ export function MapPage() {
               <div className={styles.canvasMeta}>
                 <span className="pill subtle">Tick {formatWorldTick(tick, 'short')}</span>
                 <span className="pill subtle">{mapFeatures.length} active features</span>
-                <span className="pill subtle">{selectedMapAnchors.length} anchors</span>
+                <span className="pill subtle">{selectedMapAnchors.length} place links</span>
                 {tool === 'anchor' ? (
                   <span className="pill highlight">
-                    Anchor target: {anchorLocationId === '' ? 'pick a place' : locations.find((location) => String(location.id) === anchorLocationId)?.name ?? 'unknown'}
+                    Place link target: {anchorLocationId === '' ? 'pick a place' : locations.find((location) => String(location.id) === anchorLocationId)?.name ?? 'unknown'}
                   </span>
                 ) : null}
               </div>
@@ -1259,7 +1269,7 @@ export function MapPage() {
                     }}
                     value={editMapForm.focusLocationId}
                   >
-                    <option value="">World scope</option>
+                    <option value="">Whole world</option>
                     {locations.map((location) => (
                       <option key={location.id} value={location.id}>
                         {location.name}
@@ -1292,7 +1302,7 @@ export function MapPage() {
 
                 {editMapForm.displayKind === 'image' ? (
                   <label>
-                    <span>Image Asset Path</span>
+                    <span>Image File Path</span>
                     <input
                       onChange={(event) => {
                         setEditMapForm((current) => ({
@@ -1342,7 +1352,7 @@ export function MapPage() {
               </form>
 
               <div className="linked-card">
-                <p className="card-title">Anchor Placement</p>
+                <p className="card-title">Place Link</p>
                 <label>
                   <span>Location</span>
                   <select
@@ -1360,15 +1370,15 @@ export function MapPage() {
                   </select>
                 </label>
                 <p className="muted helper-text">
-                  Switch to the `anchor` tool, pick a place here, then click the canvas to place or move its anchor.
+                  Switch to the `Place Link` tool, pick a place here, then click the canvas to place or move its linked position.
                 </p>
               </div>
 
               <div className="linked-card">
-                <p className="card-title">Anchors On This Map</p>
+                <p className="card-title">Place Links On This Map</p>
                 <div className={styles.relatedList}>
                   {selectedMapAnchors.length === 0 ? (
-                    <p className="muted helper-text">No anchors yet.</p>
+                    <p className="muted helper-text">No place links yet.</p>
                   ) : (
                     selectedMapAnchors.map((anchor) => (
                       <div className="entity-list-item" key={anchor.id}>
@@ -1412,7 +1422,7 @@ export function MapPage() {
               </div>
 
               <div className="linked-card">
-                <p className="card-title">{selectedFeature ? 'Selected Feature' : 'New Feature Draft'}</p>
+                <p className="card-title">{selectedFeature ? 'Selected Feature' : 'Feature Draft'}</p>
                 <form className="form" onSubmit={selectedFeature ? handleSaveSelectedFeature : undefined}>
                   <label>
                     <span>Label</span>
@@ -1592,7 +1602,7 @@ export function MapPage() {
                 <>
                   {relatedMaps.length > 0 ? (
                     <div className="linked-card">
-                      <p className="card-title">Related Representations</p>
+                      <p className="card-title">Related Maps</p>
                       <div className={styles.relatedList}>
                         {relatedMaps.map((map) => (
                           <div className="entity-list-item" key={map.id}>
@@ -1600,7 +1610,7 @@ export function MapPage() {
                               <strong>{map.name}</strong>
                               <span className="pill small">{map.displayKind}</span>
                             </div>
-                            <span>{map.focusLocation?.name ?? 'World scope'}</span>
+                            <span>{map.focusLocation?.name ?? 'Whole world'}</span>
                             <button
                               className="secondary-button"
                               onClick={() => {
@@ -1608,7 +1618,7 @@ export function MapPage() {
                               }}
                               type="button"
                             >
-                              Jump To Map
+                              Open Map
                             </button>
                           </div>
                         ))}

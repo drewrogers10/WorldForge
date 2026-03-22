@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { workspaceOptions, type WorkspaceOption, type WorkspaceView } from '@renderer/lib/forms';
+import { workspaceOptions, type WorkspaceView } from '@renderer/lib/forms';
 import { appCopy } from '@renderer/lib/copy';
 import { Sidebar } from './Sidebar';
 import { TemporalDock } from './TemporalDock';
@@ -103,14 +103,6 @@ export function AppShell() {
       setIsRefreshing(false);
     }
   };
-
-  const activeWorkspace: WorkspaceOption =
-    workspaceOptions.find((workspace) => workspace.id === activeView) ?? {
-      id: 'overview',
-      label: 'Overview',
-      description: 'Review world coverage, recent additions, and where to work next.',
-      group: 'Workspace',
-    };
 
   const handleSidebarToggle = () => {
     if (isCompactShell) {
@@ -227,15 +219,6 @@ export function AppShell() {
       </div>
 
       <main className={styles['app-main']}>
-        <header className={styles['app-header']}>
-          <div className={styles['header-copy']}>
-            <p className="eyebrow">{activeWorkspace.group}</p>
-            <h2>{activeWorkspace.label}</h2>
-            <p className={`muted ${styles['shell-intro']}`}>{activeWorkspace.description}</p>
-          </div>
-          <span className="pill subtle">{activeWorkspace.group}</span>
-        </header>
-
         {errorMessage && <div className="status error">{errorMessage}</div>}
 
         <div className={styles['app-body']}>

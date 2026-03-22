@@ -4,7 +4,6 @@ import type { Location } from '@shared/location';
 import { formatWorldTick } from '@shared/temporal';
 import { Panel } from '@renderer/components/Panel';
 import type { WorkspaceView } from '@renderer/lib/forms';
-import { useThemeStore, getThemeDetails } from '@renderer/store/themeStore';
 
 type WorldOverviewProps = {
   changedCharacterIds: ReadonlySet<number>;
@@ -65,9 +64,6 @@ export function WorldOverview({
   overviewDelta,
   tick,
 }: WorldOverviewProps) {
-  const { theme } = useThemeStore();
-  const themeDetails = getThemeDetails(theme);
-
   const locatedCharacters = characters.filter((character) => character.locationId !== null);
   const unplacedCharacters = characters.length - locatedCharacters.length;
   const ownedItems = items.filter((item) => item.ownerCharacterId !== null);
@@ -140,8 +136,8 @@ export function WorldOverview({
       value: `${locatedCharacters.length}/${characters.length || 0}`,
       detail:
         characters.length > 0
-          ? `${Math.round((locatedCharacters.length / characters.length) * 100)}% grounded in the map`
-          : 'Add people to start mapping your cast',
+          ? `${Math.round((locatedCharacters.length / characters.length) * 100)}% assigned to a place`
+          : 'Add people to start tracking characters',
     },
     {
       label: 'Items assigned',
@@ -156,8 +152,8 @@ export function WorldOverview({
       value: `${activeLocationCount}/${locations.length || 0}`,
       detail:
         locations.length > 0
-          ? 'Top hubs shown below by linked people and items'
-          : 'Add places to create world anchors',
+          ? 'Top places are listed below by connected people and items'
+          : 'Add places to start organizing locations',
     },
   ];
 
@@ -166,11 +162,8 @@ export function WorldOverview({
       <Panel className="overview-hero-panel" title="World Overview">
         <div className="overview-hero">
           <div className="overview-hero-copy">
-            <p className="eyebrow">Setting Snapshot</p>
-            <h3>
-              {themeDetails.heroLine1}{' '}
-              <em>{themeDetails.heroLine2}</em>
-            </h3>
+            <p className="eyebrow">Current State</p>
+            <h3>Review your world at a glance.</h3>
             <p className="muted">
               This overview reflects {formatWorldTick(tick)} and highlights what changed
               since the previous committed position.
@@ -207,9 +200,9 @@ export function WorldOverview({
       </Panel>
 
       <div className="overview-main-grid">
-        <Panel className="overview-story-panel" title="World Pulse">
+        <Panel className="overview-story-panel" title="Coverage">
           {isLoading ? (
-            <p className="muted">Loading the current state of the world...</p>
+            <p className="muted">Loading world data...</p>
           ) : (
             <div className="overview-readiness-list">
               {worldReadiness.map((item) => (
@@ -225,12 +218,11 @@ export function WorldOverview({
           )}
         </Panel>
 
-        <Panel className="overview-action-panel" title="Jump Into a Workspace">
+        <Panel className="overview-action-panel" title="Open a Workspace">
           <div className="overview-action-grid">
             <OverviewActionCard
-              body="Shape the cast, review who still needs a home, and move into individual edits only when necessary."
+              body="Review characters, see who still needs a place, and update records as needed."
               cta="Open People"
-              eyebrow="Cast"
               onClick={() => {
                 onViewChange('people');
               }}
@@ -238,19 +230,17 @@ export function WorldOverview({
               title="People"
             />
             <OverviewActionCard
-              body="Check hubs, empty regions, and which places are actually carrying world state."
+              body="Review places, see what is connected, and spot empty areas that still need detail."
               cta="Open Places"
-              eyebrow="Map"
               onClick={() => {
                 onViewChange('places');
               }}
-              stat={`${locations.length} anchors`}
+              stat={`${locations.length} places`}
               title="Places"
             />
             <OverviewActionCard
-              body="Review ownership, storage, and loose assets without starting from the raw item table."
+              body="Check ownership, storage, and which items are still unassigned."
               cta="Open Items"
-              eyebrow="Assets"
               onClick={() => {
                 onViewChange('items');
               }}
@@ -285,7 +275,7 @@ export function WorldOverview({
             </div>
           ) : (
             <p className="muted">
-              Add places first, then connect people and items to turn the map into working world state.
+              Add places, then link people and items to see where activity is concentrated.
             </p>
           )}
         </Panel>
@@ -310,19 +300,19 @@ export function WorldOverview({
               ))}
             </div>
           ) : (
-            <p className="muted">No records yet. Start with a person or place to seed the world.</p>
+            <p className="muted">No records yet. Start with a person or place.</p>
           )}
         </Panel>
 
-        <Panel className="overview-roadmap-panel" title="World Areas">
+        <Panel className="overview-roadmap-panel" title="Workspace Status">
           <div className="overview-roadmap-grid">
             <RoadmapCard
-              description="People, places, and items are live now."
-              title="Active Foundations"
+              description="People, places, items, maps, and events are available now."
+              title="Available Now"
             />
             <RoadmapCard
-              description="Powers, events, and organizations are scaffolded and ready for deeper modeling next."
-              title="Next Layers"
+              description="Powers and organizations are listed in navigation but still need full editors."
+              title="Still To Build"
             />
           </div>
         </Panel>
@@ -351,7 +341,6 @@ function OverviewMetric({ delta, label, tone, value }: OverviewMetricProps) {
 type OverviewActionCardProps = {
   body: string;
   cta: string;
-  eyebrow: string;
   onClick: () => void;
   stat: string;
   title: string;
@@ -360,14 +349,12 @@ type OverviewActionCardProps = {
 function OverviewActionCard({
   body,
   cta,
-  eyebrow,
   onClick,
   stat,
   title,
 }: OverviewActionCardProps) {
   return (
     <article className="linked-card overview-action-card">
-      <p className="eyebrow">{eyebrow}</p>
       <div className="entity-list-heading">
         <p className="card-title">{title}</p>
         <span className="pill small subtle">{stat}</span>

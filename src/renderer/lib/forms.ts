@@ -17,7 +17,7 @@ export type LocationFormState = CreateLocationInput;
 
 export type WorkspaceOption = {
   description: string;
-  group: 'Workspace' | 'Atlas' | 'Lore';
+  group: 'Home' | 'World' | 'Timeline' | 'Reference';
   id: WorkspaceView;
   label: string;
 };
@@ -26,57 +26,58 @@ export const workspaceOptions: WorkspaceOption[] = [
   {
     id: 'overview',
     label: 'Overview',
-    description: 'Review world coverage, recent additions, and where to work next.',
-    group: 'Workspace',
+    description: 'Review coverage, recent changes, and where to work next.',
+    group: 'Home',
   },
   {
     id: 'people',
     label: 'People',
-    description: 'Track your cast, connections, and where each person belongs.',
-    group: 'Atlas',
+    description: 'Track characters, connections, and current locations.',
+    group: 'World',
   },
   {
     id: 'places',
     label: 'Places',
-    description: 'Organize regions, settlements, and the anchors of your setting.',
-    group: 'Atlas',
+    description: 'Organize regions, settlements, and notable locations.',
+    group: 'World',
   },
   {
     id: 'maps',
     label: 'Maps',
-    description: 'Compose vector atlases, image renderings, and shared place anchors.',
-    group: 'Atlas',
+    description: 'Create maps, image-backed references, and linked place markers.',
+    group: 'World',
   },
   {
     id: 'items',
     label: 'Items',
-    description: 'Manage artifacts, gear, and loose assets across the world.',
-    group: 'Atlas',
+    description: 'Track items, ownership, and where each item is stored.',
+    group: 'World',
   },
   {
     id: 'powers',
     label: 'Powers',
-    description: 'Outline systems of magic, abilities, and exceptional forces.',
-    group: 'Lore',
+    description: 'Define magic systems, abilities, and special rules.',
+    group: 'Reference',
   },
   {
     id: 'events',
     label: 'Events',
-    description: 'Map timelines, turning points, and the history of the world.',
-    group: 'Lore',
+    description: 'Track events on the timeline and where they happened.',
+    group: 'Timeline',
   },
   {
     id: 'organizations',
     label: 'Organizations',
-    description: 'Catalog factions, institutions, and shared agendas.',
-    group: 'Lore',
+    description: 'Track factions, institutions, and who they affect.',
+    group: 'Reference',
   },
 ];
 
 export const workspaceGroups: Array<WorkspaceOption['group']> = [
-  'Workspace',
-  'Atlas',
-  'Lore',
+  'Home',
+  'World',
+  'Timeline',
+  'Reference',
 ];
 
 export const emptyCharacterForm = (

@@ -27,38 +27,3 @@ export const useThemeStore = create<ThemeState>()(
     }
   )
 );
-
-export function getThemeDetails(theme: ThemePreset) {
-  switch (theme) {
-    case 'preset-a':
-      return {
-        name: 'Organic Tech',
-        heroLine1: 'Ecosystem is the',
-        heroLine2: 'Evolution.',
-      };
-    case 'preset-b':
-      return {
-        name: 'Midnight Luxe',
-        heroLine1: 'Excellence meets',
-        heroLine2: 'Refinement.',
-      };
-    case 'preset-c':
-      return {
-        name: 'Brutalist Signal',
-        heroLine1: 'Access the',
-        heroLine2: 'Control.',
-      };
-    case 'preset-d':
-      return {
-        name: 'Vapor Clinic',
-        heroLine1: 'Synthesis beyond',
-        heroLine2: 'Transcendence.',
-      };
-    default:
-      return {
-        name: 'Default',
-        heroLine1: 'System is',
-        heroLine2: 'Engaged.',
-      };
-  }
-}

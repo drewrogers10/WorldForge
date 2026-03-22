@@ -1,10 +1,10 @@
 import { useThemeStore, type ThemePreset } from '@renderer/store/themeStore';
 
 const presets: { id: ThemePreset; label: string }[] = [
-  { id: 'preset-a', label: 'Organic Tech' },
-  { id: 'preset-b', label: 'Midnight Luxe' },
-  { id: 'preset-c', label: 'Brutalist Signal' },
-  { id: 'preset-d', label: 'Vapor Clinic' },
+  { id: 'preset-a', label: 'Green' },
+  { id: 'preset-b', label: 'Gold' },
+  { id: 'preset-c', label: 'Red' },
+  { id: 'preset-d', label: 'Violet' },
 ];
 
 export function ThemeSwitcher() {
@@ -12,6 +12,7 @@ export function ThemeSwitcher() {
 
   return (
     <select
+      aria-label="Theme"
       className="secondary-button"
       onChange={(e) => {
         setTheme(e.target.value as ThemePreset);
