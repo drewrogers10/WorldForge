@@ -60,6 +60,10 @@ export function getTimelineBounds(db: AppDatabase): TimelineBounds {
         UNION ALL SELECT valid_to FROM character_location_spans WHERE valid_to IS NOT NULL
         UNION ALL SELECT valid_from FROM item_assignment_spans
         UNION ALL SELECT valid_to FROM item_assignment_spans WHERE valid_to IS NOT NULL
+        UNION ALL SELECT start_tick FROM events
+        UNION ALL SELECT end_tick FROM events WHERE end_tick IS NOT NULL
+        UNION ALL SELECT valid_from FROM map_feature_versions
+        UNION ALL SELECT valid_to FROM map_feature_versions WHERE valid_to IS NOT NULL
       )
       SELECT MIN(tick) AS minTick, MAX(tick) AS maxTick
       FROM boundary_ticks
@@ -96,6 +100,10 @@ export function listTimelineAnchors(db: AppDatabase): TimelineAnchor[] {
         UNION ALL SELECT valid_to FROM character_location_spans WHERE valid_to IS NOT NULL
         UNION ALL SELECT valid_from FROM item_assignment_spans
         UNION ALL SELECT valid_to FROM item_assignment_spans WHERE valid_to IS NOT NULL
+        UNION ALL SELECT start_tick FROM events
+        UNION ALL SELECT end_tick FROM events WHERE end_tick IS NOT NULL
+        UNION ALL SELECT valid_from FROM map_feature_versions
+        UNION ALL SELECT valid_to FROM map_feature_versions WHERE valid_to IS NOT NULL
       )
       SELECT tick, COUNT(*) AS changeCount
       FROM boundary_ticks

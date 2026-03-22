@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import type { Location } from '@shared/location';
 import { formatWorldTick, type TemporalDetailStatus } from '@shared/temporal';
 import { Panel } from '@renderer/components/Panel';
@@ -12,6 +12,7 @@ type LocationEditorProps = {
   isSubmitting: boolean;
   linkedCharacterCount: number;
   linkedItemCount: number;
+  linksSlot?: ReactNode;
   location: Location | null;
   mode: 'create' | 'edit';
   onDelete?: () => void | Promise<void>;
@@ -42,6 +43,7 @@ export function LocationEditor({
   isSubmitting,
   linkedCharacterCount,
   linkedItemCount,
+  linksSlot,
   location,
   mode,
   onDelete,
@@ -178,6 +180,8 @@ export function LocationEditor({
               </button>
             </div>
           </form>
+
+          {linksSlot}
         </>
       ) : null}
     </Panel>

@@ -3,8 +3,10 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppShell } from '@renderer/components/AppShell';
 import { OverviewPage } from '@renderer/features/overview/OverviewPage';
 import { CharacterPage } from '@renderer/features/characters/CharacterPage';
+import { EventPage } from '@renderer/features/events/EventPage';
 import { LocationPage } from '@renderer/features/locations/LocationPage';
 import { ItemPage } from '@renderer/features/items/ItemPage';
+import { MapPage } from '@renderer/features/maps/MapPage';
 import { useTemporalStore } from '@renderer/store/temporalStore';
 
 export default function App() {
@@ -22,7 +24,9 @@ export default function App() {
           <Route path="overview" element={<OverviewPage />} />
           <Route path="people" element={<CharacterPage />} />
           <Route path="places" element={<LocationPage />} />
+          <Route path="maps" element={<MapPage />} />
           <Route path="items" element={<ItemPage />} />
+          <Route path="events" element={<EventPage />} />
         </Route>
       </Routes>
     </HashRouter>

@@ -6,6 +6,7 @@ export type WorkspaceView =
   | 'overview'
   | 'people'
   | 'places'
+  | 'maps'
   | 'powers'
   | 'events'
   | 'items'
@@ -38,6 +39,12 @@ export const workspaceOptions: WorkspaceOption[] = [
     id: 'places',
     label: 'Places',
     description: 'Organize regions, settlements, and the anchors of your setting.',
+    group: 'Atlas',
+  },
+  {
+    id: 'maps',
+    label: 'Maps',
+    description: 'Compose vector atlases, image renderings, and shared place anchors.',
     group: 'Atlas',
   },
   {

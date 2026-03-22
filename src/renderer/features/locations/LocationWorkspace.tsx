@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import type { Character } from '@shared/character';
 import type { Location } from '@shared/location';
 import type { TemporalDetailStatus } from '@shared/temporal';
@@ -17,6 +17,7 @@ type LocationWorkspaceProps = {
   isLoadingLocations: boolean;
   isUpdatingLocation: boolean;
   linkedItemCount: number;
+  linksSlot?: ReactNode;
   locations: Location[];
   onCreateLocation: (event: FormEvent<HTMLFormElement>) => void | Promise<void>;
   onCreateLocationFormChange: (changes: Partial<LocationFormState>) => void;
@@ -42,6 +43,7 @@ export function LocationWorkspace({
   isLoadingLocations,
   isUpdatingLocation,
   linkedItemCount,
+  linksSlot,
   locations,
   onCreateLocation,
   onCreateLocationFormChange,
@@ -73,6 +75,7 @@ export function LocationWorkspace({
         isSubmitting={isUpdatingLocation}
         linkedCharacterCount={selectedLocationCharacterCount}
         linkedItemCount={linkedItemCount}
+        linksSlot={linksSlot}
         location={selectedLocation}
         mode="edit"
         onDelete={onDeleteLocation}

@@ -1,16 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createTestDatabaseContext } from '@db/test-utils';
+import { createTestStorageContext } from '@backend/storage/test-utils';
 import { createCharacterService } from './character-service';
 import { createItemService } from './item-service';
 import { createLocationService } from './location-service';
 
-type TestDatabaseContext = ReturnType<typeof createTestDatabaseContext>;
+type TestDatabaseContext = ReturnType<typeof createTestStorageContext>;
 
 describe('item service', () => {
   let context: TestDatabaseContext | undefined;
 
   beforeEach(() => {
-    context = createTestDatabaseContext();
+    context = createTestStorageContext();
   });
 
   afterEach(() => {
@@ -19,9 +19,9 @@ describe('item service', () => {
   });
 
   it('supports temporal item CRUD across unassigned, character-owned, and location-owned states', () => {
-    const locationService = createLocationService(context!.db);
-    const characterService = createCharacterService(context!.db);
-    const itemService = createItemService(context!.db);
+    const locationService = createLocationService(context!.db, context!.storageCoordinator);
+    const characterService = createCharacterService(context!.db, context!.storageCoordinator);
+    const itemService = createItemService(context!.db, context!.storageCoordinator);
 
     const coast = locationService.createLocation({
       name: 'Glass Coast',
@@ -130,9 +130,9 @@ describe('item service', () => {
   });
 
   it('rejects invalid assignments and missing or inactive referenced entities', () => {
-    const locationService = createLocationService(context!.db);
-    const characterService = createCharacterService(context!.db);
-    const itemService = createItemService(context!.db);
+    const locationService = createLocationService(context!.db, context!.storageCoordinator);
+    const characterService = createCharacterService(context!.db, context!.storageCoordinator);
+    const itemService = createItemService(context!.db, context!.storageCoordinator);
 
     const coast = locationService.createLocation({
       name: 'Glass Coast',
@@ -192,9 +192,9 @@ describe('item service', () => {
   });
 
   it('clears item assignments when the linked character or location ends', () => {
-    const locationService = createLocationService(context!.db);
-    const characterService = createCharacterService(context!.db);
-    const itemService = createItemService(context!.db);
+    const locationService = createLocationService(context!.db, context!.storageCoordinator);
+    const characterService = createCharacterService(context!.db, context!.storageCoordinator);
+    const itemService = createItemService(context!.db, context!.storageCoordinator);
 
     const coast = locationService.createLocation({
       name: 'Glass Coast',

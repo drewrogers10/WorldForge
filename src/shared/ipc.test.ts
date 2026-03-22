@@ -170,4 +170,209 @@ describe('ipc contracts', () => {
     expect(() => ipcContracts.deleteItem.input.parse({ id: 0, effectiveTick: 10 })).toThrow();
     expect(ipcContracts.deleteItem.output.parse(undefined)).toBeUndefined();
   });
+
+  it('validates event, map, and entity link payloads', () => {
+    const createEventInput = ipcContracts.createEvent.input.parse({
+      title: '  Treaty of Harbor Reach  ',
+      summary: '  The coast is redrawn.  ',
+      startTick: 20,
+      endTick: 25,
+      primaryLocationId: 3,
+    });
+
+    expect(createEventInput).toEqual({
+      title: 'Treaty of Harbor Reach',
+      summary: 'The coast is redrawn.',
+      startTick: 20,
+      endTick: 25,
+      primaryLocationId: 3,
+    });
+
+    expect(
+      ipcContracts.getEvent.output.parse({
+        status: 'active',
+        record: {
+          id: 1,
+          title: 'Treaty of Harbor Reach',
+          summary: 'The coast is redrawn.',
+          startTick: 20,
+          endTick: 25,
+          primaryLocationId: 3,
+          primaryLocation: {
+            id: 3,
+            name: 'Harbor Reach',
+          },
+          createdAt: '2026-03-21T12:00:00.000Z',
+          updatedAt: '2026-03-21T12:00:00.000Z',
+        },
+      }),
+    ).toMatchObject({
+      status: 'active',
+      record: expect.objectContaining({
+        primaryLocationId: 3,
+      }),
+    });
+
+    const createMapFeatureInput = ipcContracts.createMapFeature.input.parse({
+      mapId: 2,
+      featureKind: 'border',
+      locationId: 3,
+      eventId: 1,
+      label: '  Western Border  ',
+      geometry: {
+        type: 'border',
+        points: [
+          { x: 100, y: 100 },
+          { x: 200, y: 140 },
+          { x: 180, y: 260 },
+        ],
+      },
+      style: {
+        stroke: '#d7b57a',
+        fill: '#d7b57a22',
+        strokeWidth: 90,
+      },
+      sourceEventId: 1,
+      effectiveTick: 40,
+    });
+
+    expect(createMapFeatureInput.label).toBe('Western Border');
+    expect(
+      ipcContracts.createMap.output.parse({
+        id: 2,
+        name: 'Harbor Reach Region',
+        displayKind: 'image',
+        focusLocationId: 3,
+        focusLocation: {
+          id: 3,
+          name: 'Harbor Reach',
+        },
+        parentMapId: null,
+        parentMap: null,
+        imageAssetPath: '/tmp/harbor-reach.png',
+        canvasWidth: 10000,
+        canvasHeight: 10000,
+        createdAt: '2026-03-21T12:00:00.000Z',
+        updatedAt: '2026-03-21T12:00:00.000Z',
+      }),
+    ).toMatchObject({
+      displayKind: 'image',
+      imageAssetPath: '/tmp/harbor-reach.png',
+    });
+
+    expect(
+      ipcContracts.upsertMapAnchor.output.parse({
+        id: 10,
+        mapId: 2,
+        locationId: 3,
+        location: {
+          id: 3,
+          name: 'Harbor Reach',
+        },
+        x: 4000,
+        y: 5200,
+        createdAt: '2026-03-21T12:00:00.000Z',
+        updatedAt: '2026-03-21T12:00:00.000Z',
+      }),
+    ).toMatchObject({
+      x: 4000,
+      y: 5200,
+    });
+
+    expect(
+      ipcContracts.createEntityLink.input.parse({
+        entityKind: 'location',
+        entityId: 3,
+        linkKind: 'file',
+        label: '  Harbor Notes  ',
+        target: '  /tmp/harbor-notes.md  ',
+      }),
+    ).toEqual({
+      entityKind: 'location',
+      entityId: 3,
+      linkKind: 'file',
+      label: 'Harbor Notes',
+      target: '/tmp/harbor-notes.md',
+    });
+
+    expect(() =>
+      ipcContracts.createMapFeature.input.parse({
+        mapId: 2,
+        featureKind: 'marker',
+        locationId: null,
+        eventId: null,
+        label: '',
+        geometry: {
+          type: 'border',
+          points: [
+            { x: 100, y: 100 },
+            { x: 200, y: 140 },
+            { x: 180, y: 260 },
+          ],
+        },
+        style: null,
+        sourceEventId: null,
+        effectiveTick: 10,
+      }),
+    ).toThrow('Feature kind must match geometry type.');
+    expect(() =>
+      ipcContracts.createEvent.input.parse({
+        title: 'Broken Event',
+        summary: '',
+        startTick: 20,
+        endTick: 10,
+        primaryLocationId: null,
+      }),
+    ).toThrow();
+  });
+
+  it('validates storage search and health payloads', () => {
+    expect(
+      ipcContracts.searchWorld.input.parse({
+        query: 'harbor beacon',
+      }),
+    ).toEqual({
+      query: 'harbor beacon',
+    });
+
+    expect(
+      ipcContracts.semanticSearch.output.parse([
+        {
+          entityType: 'location',
+          entityId: 3,
+          title: 'Sunspire Harbor',
+          summary: 'A rebuilt harbor beneath the observatory cliffs.',
+          matchedText: 'glass beacon above the cliffs',
+          score: 0.82,
+          tick: 40,
+        },
+      ]),
+    ).toEqual([
+      {
+        entityType: 'location',
+        entityId: 3,
+        title: 'Sunspire Harbor',
+        summary: 'A rebuilt harbor beneath the observatory cliffs.',
+        matchedText: 'glass beacon above the cliffs',
+        score: 0.82,
+        tick: 40,
+      },
+    ]);
+
+    expect(
+      ipcContracts.getStorageHealth.output.parse({
+        worldRoot: '/tmp/world',
+        vectorEngine: 'embedded-hash-vector',
+        documentDirtyCount: 0,
+        vectorDirtyCount: 1,
+        pendingSnapshotCount: 2,
+        searchDocumentCount: 4,
+        lastDocumentError: null,
+        lastVectorError: 'vector write failed',
+      }),
+    ).toMatchObject({
+      vectorDirtyCount: 1,
+      pendingSnapshotCount: 2,
+    });
+  });
 });

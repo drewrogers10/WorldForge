@@ -1,9 +1,17 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { app, BrowserWindow } from 'electron';
+import { createDocumentStore } from '@backend/storage/document-store';
+import { createSearchDocumentBuilder } from '@backend/storage/search-document-builder';
+import { createRelationalIndexStore } from '@backend/storage/sqlite-relational-index-store';
+import { createStorageCoordinator } from '@backend/storage/storage-coordinator';
+import { createVectorIndex } from '@backend/storage/vector-index';
 import { createCharacterService } from '@backend/services/character-service';
+import { createEntityLinkService } from '@backend/services/entity-link-service';
+import { createEventService } from '@backend/services/event-service';
 import { createItemService } from '@backend/services/item-service';
 import { createLocationService } from '@backend/services/location-service';
+import { createMapService } from '@backend/services/map-service';
 import { createTimelineService } from '@backend/services/timeline-service';
 import { createDatabase } from '@db/client';
 import { runMigrations } from '@db/migrate';
@@ -54,21 +62,45 @@ function createMainWindow(): BrowserWindow {
 }
 
 function initializeBackend(): void {
-  const databasePath = path.join(app.getPath('userData'), 'worldforge.sqlite');
+  const userDataPath = app.getPath('userData');
+  const databasePath = path.join(userDataPath, 'worldforge.sqlite');
+  const worldRoot = path.join(userDataPath, 'world');
   const { db } = createDatabase(databasePath);
 
   runMigrations(db, resolveMigrationsPath());
 
-  const characterService = createCharacterService(db);
-  const itemService = createItemService(db);
-  const locationService = createLocationService(db);
+  const documentStore = createDocumentStore(worldRoot);
+  const relationalIndexStore = createRelationalIndexStore(db);
+  const searchDocumentBuilder = createSearchDocumentBuilder();
+  const vectorIndex = createVectorIndex(
+    path.join(worldRoot, '.worldforge', 'vector', 'index.json'),
+  );
+  const storageCoordinator = createStorageCoordinator({
+    documentStore,
+    relationalIndexStore,
+    searchDocumentBuilder,
+    vectorIndex,
+  });
+
+  storageCoordinator.initialize();
+
+  const characterService = createCharacterService(db, storageCoordinator);
+  const entityLinkService = createEntityLinkService(db);
+  const eventService = createEventService(db);
+  const itemService = createItemService(db, storageCoordinator);
+  const locationService = createLocationService(db, storageCoordinator);
+  const mapService = createMapService(db);
   const timelineService = createTimelineService(db);
 
   registerIpcHandlers({
     characterService,
+    entityLinkService,
+    eventService,
     itemService,
     locationService,
+    mapService,
     timelineService,
+    storageCoordinator,
   });
 }
 

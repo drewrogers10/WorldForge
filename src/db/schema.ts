@@ -1,5 +1,14 @@
 import { sql } from 'drizzle-orm';
-import { check, index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import {
+  type AnySQLiteColumn,
+  check,
+  index,
+  integer,
+  primaryKey,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core';
 
 const existenceCheck = (fromColumn: { name: string }, toColumn: { name: string }) =>
   sql`${toColumn} IS NULL OR ${toColumn} > ${fromColumn}`;
@@ -232,9 +241,281 @@ export const itemAssignmentSpans = sqliteTable(
   }),
 );
 
+export const entityDocumentSyncState = sqliteTable(
+  'entity_document_sync_state',
+  {
+    entityType: text('entity_type').notNull(),
+    entityId: integer('entity_id').notNull(),
+    canonicalPath: text('canonical_path'),
+    contentHash: text('content_hash'),
+    lastSyncedAt: integer('last_synced_at', { mode: 'number' }),
+    dirtyReason: text('dirty_reason'),
+    retryCount: integer('retry_count').notNull().default(0),
+    lastError: text('last_error'),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.entityType, table.entityId] }),
+    entityTypeCheck: check(
+      'entity_document_sync_state_entity_type_check',
+      sql`${table.entityType} IN ('character', 'location', 'item')`,
+    ),
+    dirtyLookupIdx: index('entity_document_sync_state_dirty_idx').on(table.dirtyReason),
+  }),
+);
+
+export const entityVectorSyncState = sqliteTable(
+  'entity_vector_sync_state',
+  {
+    entityType: text('entity_type').notNull(),
+    entityId: integer('entity_id').notNull(),
+    contentHash: text('content_hash'),
+    lastSyncedAt: integer('last_synced_at', { mode: 'number' }),
+    dirtyReason: text('dirty_reason'),
+    retryCount: integer('retry_count').notNull().default(0),
+    lastError: text('last_error'),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.entityType, table.entityId] }),
+    entityTypeCheck: check(
+      'entity_vector_sync_state_entity_type_check',
+      sql`${table.entityType} IN ('character', 'location', 'item')`,
+    ),
+    dirtyLookupIdx: index('entity_vector_sync_state_dirty_idx').on(table.dirtyReason),
+  }),
+);
+
+export const entitySnapshotJobs = sqliteTable(
+  'entity_snapshot_jobs',
+  {
+    entityType: text('entity_type').notNull(),
+    entityId: integer('entity_id').notNull(),
+    tick: integer('tick').notNull(),
+    retryCount: integer('retry_count').notNull().default(0),
+    lastError: text('last_error'),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.entityType, table.entityId, table.tick] }),
+    entityTypeCheck: check(
+      'entity_snapshot_jobs_entity_type_check',
+      sql`${table.entityType} IN ('character', 'location', 'item')`,
+    ),
+    tickLookupIdx: index('entity_snapshot_jobs_tick_idx').on(table.tick),
+  }),
+);
+
+export const worldSearchDocuments = sqliteTable(
+  'world_search_documents',
+  {
+    entityType: text('entity_type').notNull(),
+    entityId: integer('entity_id').notNull(),
+    title: text('title').notNull(),
+    summary: text('summary').notNull().default(''),
+    body: text('body').notNull().default(''),
+    relationshipsText: text('relationships_text').notNull().default(''),
+    canonicalPath: text('canonical_path').notNull(),
+    contentHash: text('content_hash').notNull(),
+    updatedAt: integer('updated_at', { mode: 'number' }).notNull(),
+  },
+  (table) => ({
+    pk: primaryKey({ columns: [table.entityType, table.entityId] }),
+    entityTypeCheck: check(
+      'world_search_documents_entity_type_check',
+      sql`${table.entityType} IN ('character', 'location', 'item')`,
+    ),
+    updatedIdx: index('world_search_documents_updated_idx').on(table.updatedAt),
+    canonicalPathIdx: index('world_search_documents_canonical_path_idx').on(
+      table.canonicalPath,
+    ),
+  }),
+);
+
+export const events = sqliteTable(
+  'events',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    title: text('title').notNull(),
+    summary: text('summary').notNull().default(''),
+    startTick: integer('start_tick').notNull(),
+    endTick: integer('end_tick'),
+    primaryLocationId: integer('primary_location_id').references(() => locations.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: integer('created_at', { mode: 'number' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'number' }).notNull(),
+  },
+  (table) => ({
+    startTickIdx: index('events_start_idx').on(table.startTick, table.id),
+    primaryLocationIdx: index('events_primary_location_idx').on(table.primaryLocationId),
+    rangeCheck: check(
+      'events_tick_range_check',
+      sql`${table.endTick} IS NULL OR ${table.endTick} >= ${table.startTick}`,
+    ),
+  }),
+);
+
+export const maps = sqliteTable(
+  'maps',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    name: text('name').notNull(),
+    displayKind: text('display_kind').notNull(),
+    focusLocationId: integer('focus_location_id').references(() => locations.id, {
+      onDelete: 'set null',
+    }),
+    parentMapId: integer('parent_map_id').references((): AnySQLiteColumn => maps.id, {
+      onDelete: 'set null',
+    }),
+    imageAssetPath: text('image_asset_path'),
+    canvasWidth: integer('canvas_width').notNull().default(10_000),
+    canvasHeight: integer('canvas_height').notNull().default(10_000),
+    createdAt: integer('created_at', { mode: 'number' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'number' }).notNull(),
+  },
+  (table) => ({
+    displayKindCheck: check(
+      'maps_display_kind_check',
+      sql`${table.displayKind} IN ('vector', 'image')`,
+    ),
+    canvasWidthCheck: check('maps_canvas_width_check', sql`${table.canvasWidth} > 0`),
+    canvasHeightCheck: check('maps_canvas_height_check', sql`${table.canvasHeight} > 0`),
+    focusLocationIdx: index('maps_focus_location_idx').on(table.focusLocationId),
+    parentMapIdx: index('maps_parent_map_idx').on(table.parentMapId),
+  }),
+);
+
+export const mapFeatures = sqliteTable(
+  'map_features',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    mapId: integer('map_id')
+      .notNull()
+      .references(() => maps.id, { onDelete: 'cascade' }),
+    featureKind: text('feature_kind').notNull(),
+    locationId: integer('location_id').references(() => locations.id, {
+      onDelete: 'set null',
+    }),
+    eventId: integer('event_id').references(() => events.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: integer('created_at', { mode: 'number' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'number' }).notNull(),
+  },
+  (table) => ({
+    kindCheck: check(
+      'map_features_kind_check',
+      sql`${table.featureKind} IN ('marker', 'path', 'polygon', 'border')`,
+    ),
+    mapLookupIdx: index('map_features_map_idx').on(table.mapId, table.id),
+    locationLookupIdx: index('map_features_location_idx').on(table.locationId),
+    eventLookupIdx: index('map_features_event_idx').on(table.eventId),
+  }),
+);
+
+export const mapFeatureVersions = sqliteTable(
+  'map_feature_versions',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    featureId: integer('feature_id')
+      .notNull()
+      .references(() => mapFeatures.id, { onDelete: 'cascade' }),
+    validFrom: integer('valid_from').notNull(),
+    validTo: integer('valid_to'),
+    label: text('label').notNull().default(''),
+    geometryJson: text('geometry_json').notNull(),
+    styleJson: text('style_json'),
+    sourceEventId: integer('source_event_id').references(() => events.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: integer('created_at', { mode: 'number' }).notNull(),
+  },
+  (table) => ({
+    lookupIdx: index('map_feature_versions_lookup_idx').on(table.featureId, table.validFrom),
+    sourceEventIdx: index('map_feature_versions_source_event_idx').on(table.sourceEventId),
+    openIdx: uniqueIndex('map_feature_versions_open_idx')
+      .on(table.featureId)
+      .where(sql`${table.validTo} IS NULL`),
+    validityCheck: check(
+      'map_feature_versions_validity_check',
+      existenceCheck(table.validFrom, table.validTo),
+    ),
+  }),
+);
+
+export const mapAnchors = sqliteTable(
+  'map_anchors',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    mapId: integer('map_id')
+      .notNull()
+      .references(() => maps.id, { onDelete: 'cascade' }),
+    locationId: integer('location_id')
+      .notNull()
+      .references(() => locations.id, { onDelete: 'cascade' }),
+    x: integer('x').notNull(),
+    y: integer('y').notNull(),
+    createdAt: integer('created_at', { mode: 'number' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'number' }).notNull(),
+  },
+  (table) => ({
+    mapLocationIdx: uniqueIndex('map_anchors_map_location_unique_idx').on(
+      table.mapId,
+      table.locationId,
+    ),
+    locationIdx: index('map_anchors_location_idx').on(table.locationId),
+    xCheck: check('map_anchors_x_check', sql`${table.x} >= 0 AND ${table.x} <= 10000`),
+    yCheck: check('map_anchors_y_check', sql`${table.y} >= 0 AND ${table.y} <= 10000`),
+  }),
+);
+
+export const entityLinks = sqliteTable(
+  'entity_links',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    entityKind: text('entity_kind').notNull(),
+    entityId: integer('entity_id').notNull(),
+    linkKind: text('link_kind').notNull(),
+    label: text('label').notNull(),
+    target: text('target').notNull(),
+    createdAt: integer('created_at', { mode: 'number' }).notNull(),
+  },
+  (table) => ({
+    entityKindCheck: check(
+      'entity_links_entity_kind_check',
+      sql`${table.entityKind} IN ('location', 'event')`,
+    ),
+    linkKindCheck: check(
+      'entity_links_link_kind_check',
+      sql`${table.linkKind} IN ('file', 'url')`,
+    ),
+    entityLookupIdx: index('entity_links_entity_idx').on(
+      table.entityKind,
+      table.entityId,
+      table.id,
+    ),
+  }),
+);
+
 export type CharacterRow = typeof characters.$inferSelect;
 export type NewCharacterRow = typeof characters.$inferInsert;
 export type ItemRow = typeof items.$inferSelect;
 export type NewItemRow = typeof items.$inferInsert;
 export type LocationRow = typeof locations.$inferSelect;
 export type NewLocationRow = typeof locations.$inferInsert;
+export type EntityDocumentSyncStateRow = typeof entityDocumentSyncState.$inferSelect;
+export type NewEntityDocumentSyncStateRow = typeof entityDocumentSyncState.$inferInsert;
+export type EntityVectorSyncStateRow = typeof entityVectorSyncState.$inferSelect;
+export type NewEntityVectorSyncStateRow = typeof entityVectorSyncState.$inferInsert;
+export type EntitySnapshotJobRow = typeof entitySnapshotJobs.$inferSelect;
+export type NewEntitySnapshotJobRow = typeof entitySnapshotJobs.$inferInsert;
+export type WorldSearchDocumentRow = typeof worldSearchDocuments.$inferSelect;
+export type NewWorldSearchDocumentRow = typeof worldSearchDocuments.$inferInsert;
+export type EventRow = typeof events.$inferSelect;
+export type NewEventRow = typeof events.$inferInsert;
+export type MapRow = typeof maps.$inferSelect;
+export type NewMapRow = typeof maps.$inferInsert;
+export type MapFeatureRow = typeof mapFeatures.$inferSelect;
+export type NewMapFeatureRow = typeof mapFeatures.$inferInsert;
+export type MapAnchorRow = typeof mapAnchors.$inferSelect;
+export type NewMapAnchorRow = typeof mapAnchors.$inferInsert;
+export type EntityLinkRow = typeof entityLinks.$inferSelect;
+export type NewEntityLinkRow = typeof entityLinks.$inferInsert;

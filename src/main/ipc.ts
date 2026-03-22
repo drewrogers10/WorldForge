@@ -1,7 +1,11 @@
 import { ipcMain } from 'electron';
+import type { StorageCoordinator } from '@backend/storage/types';
 import type { CharacterService } from '@backend/services/character-service';
+import type { EntityLinkService } from '@backend/services/entity-link-service';
+import type { EventService } from '@backend/services/event-service';
 import type { ItemService } from '@backend/services/item-service';
 import type { LocationService } from '@backend/services/location-service';
+import type { MapService } from '@backend/services/map-service';
 import type { TimelineService } from '@backend/services/timeline-service';
 import {
   ipcContracts,
@@ -26,9 +30,13 @@ function registerHandler<K extends IpcContractKey>(
 export function registerIpcHandlers(
   services: {
     characterService: CharacterService;
+    entityLinkService: EntityLinkService;
+    eventService: EventService;
     itemService: ItemService;
     locationService: LocationService;
+    mapService: MapService;
     timelineService: TimelineService;
+    storageCoordinator: StorageCoordinator;
   },
 ): void {
   registerHandler('listCharacters', (input) =>
@@ -74,8 +82,61 @@ export function registerIpcHandlers(
   registerHandler('createItem', (input) => services.itemService.createItem(input));
   registerHandler('updateItem', (input) => services.itemService.updateItem(input));
   registerHandler('deleteItem', (input) => services.itemService.deleteItem(input));
+  registerHandler('listEvents', (input) => services.eventService.listEvents(input));
+  registerHandler('getEvent', (input) => services.eventService.getEvent(input));
+  registerHandler('createEvent', (input) => services.eventService.createEvent(input));
+  registerHandler('updateEvent', (input) => services.eventService.updateEvent(input));
+  registerHandler('deleteEvent', (input) => services.eventService.deleteEvent(input));
+  registerHandler('listMaps', () => services.mapService.listMaps());
+  registerHandler('getMap', (input) => services.mapService.getMap(input));
+  registerHandler('createMap', (input) => services.mapService.createMap(input));
+  registerHandler('updateMap', (input) => services.mapService.updateMap(input));
+  registerHandler('listMapFeatures', (input) => services.mapService.listMapFeatures(input));
+  registerHandler('createMapFeature', (input) =>
+    services.mapService.createMapFeature(input),
+  );
+  registerHandler('updateMapFeatureVersion', (input) =>
+    services.mapService.updateMapFeatureVersion(input),
+  );
+  registerHandler('deleteMapFeature', (input) =>
+    services.mapService.deleteMapFeature(input),
+  );
+  registerHandler('listMapAnchors', (input) => services.mapService.listMapAnchors(input));
+  registerHandler('upsertMapAnchor', (input) => services.mapService.upsertMapAnchor(input));
+  registerHandler('deleteMapAnchor', (input) => services.mapService.deleteMapAnchor(input));
+  registerHandler('listEntityLinks', (input) =>
+    services.entityLinkService.listEntityLinks(input),
+  );
+  registerHandler('createEntityLink', (input) =>
+    services.entityLinkService.createEntityLink(input),
+  );
+  registerHandler('updateEntityLink', (input) =>
+    services.entityLinkService.updateEntityLink(input),
+  );
+  registerHandler('deleteEntityLink', (input) =>
+    services.entityLinkService.deleteEntityLink(input),
+  );
   registerHandler('getTimelineBounds', () => services.timelineService.getTimelineBounds());
   registerHandler('listTimelineAnchors', () =>
     services.timelineService.listTimelineAnchors(),
+  );
+  registerHandler('searchWorld', (input) =>
+    services.storageCoordinator.searchWorld({
+      ...input,
+      limit: input.limit ?? 20,
+    }),
+  );
+  registerHandler('semanticSearch', (input) =>
+    services.storageCoordinator.semanticSearch({
+      ...input,
+      limit: input.limit ?? 20,
+    }),
+  );
+  registerHandler('rebuildIndexes', () => services.storageCoordinator.rebuildIndexes());
+  registerHandler('importMarkdownChanges', () =>
+    services.storageCoordinator.importMarkdownChanges(),
+  );
+  registerHandler('getStorageHealth', () =>
+    services.storageCoordinator.getStorageHealth(),
   );
 }

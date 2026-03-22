@@ -63,6 +63,15 @@ describe('database migrations', () => {
     const itemAssignmentTableDefinition = context.client
       .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'item_assignment_spans'")
       .get() as SqlDefinitionRow | undefined;
+    const documentSyncTableDefinition = context.client
+      .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'entity_document_sync_state'")
+      .get() as SqlDefinitionRow | undefined;
+    const searchTableDefinition = context.client
+      .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'world_search_documents'")
+      .get() as SqlDefinitionRow | undefined;
+    const ftsTableDefinition = context.client
+      .prepare("SELECT sql FROM sqlite_master WHERE name = 'world_search_fts'")
+      .get() as SqlDefinitionRow | undefined;
 
     expect(locationColumns.map((column) => column.name)).toEqual([
       'id',
@@ -121,6 +130,55 @@ describe('database migrations', () => {
     );
     expect(itemAssignmentTableDefinition?.sql).toContain(
       'item_assignment_spans_single_assignment_check',
+    );
+    expect(documentSyncTableDefinition?.sql).toContain(
+      'entity_document_sync_state_entity_type_check',
+    );
+    expect(searchTableDefinition?.sql).toContain(
+      'world_search_documents_entity_type_check',
+    );
+    expect(ftsTableDefinition?.sql).toContain('fts5');
+  });
+
+  it('creates map, event, and entity link tables for the atlas workspace', () => {
+    const context = createTestDatabaseContext();
+    contexts.push(context);
+
+    const tables = context.client
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
+      .all() as TableInfoRow[];
+    const mapAnchorIndexes = context.client
+      .prepare("PRAGMA index_list('map_anchors')")
+      .all() as Array<{ name: string; unique: number }>;
+    const featureVersionIndexes = context.client
+      .prepare("PRAGMA index_list('map_feature_versions')")
+      .all() as Array<{ name: string; unique: number }>;
+
+    expect(tables.map((table) => table.name)).toEqual(
+      expect.arrayContaining([
+        'events',
+        'maps',
+        'map_features',
+        'map_feature_versions',
+        'map_anchors',
+        'entity_links',
+      ]),
+    );
+    expect(mapAnchorIndexes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'map_anchors_map_location_unique_idx',
+          unique: 1,
+        }),
+      ]),
+    );
+    expect(featureVersionIndexes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: 'map_feature_versions_open_idx',
+          unique: 1,
+        }),
+      ]),
     );
   });
 

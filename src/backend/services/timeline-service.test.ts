@@ -1,17 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { createTestDatabaseContext } from '@db/test-utils';
+import { createTestStorageContext } from '@backend/storage/test-utils';
 import { formatWorldTick } from '@shared/temporal';
 import { createCharacterService } from './character-service';
 import { createLocationService } from './location-service';
 import { createTimelineService } from './timeline-service';
 
-type TestDatabaseContext = ReturnType<typeof createTestDatabaseContext>;
+type TestDatabaseContext = ReturnType<typeof createTestStorageContext>;
 
 describe('timeline service', () => {
   let context: TestDatabaseContext | undefined;
 
   beforeEach(() => {
-    context = createTestDatabaseContext();
+    context = createTestStorageContext();
   });
 
   afterEach(() => {
@@ -20,8 +20,8 @@ describe('timeline service', () => {
   });
 
   it('returns timeline bounds and change anchors from temporal writes', () => {
-    const locationService = createLocationService(context!.db);
-    const characterService = createCharacterService(context!.db);
+    const locationService = createLocationService(context!.db, context!.storageCoordinator);
+    const characterService = createCharacterService(context!.db, context!.storageCoordinator);
     const timelineService = createTimelineService(context!.db);
 
     const harbor = locationService.createLocation({

@@ -1,0 +1,114 @@
+.maps-layout {
+  display: grid;
+  grid-template-columns: minmax(18rem, 24rem) minmax(0, 1.7fr) minmax(20rem, 24rem);
+  gap: 1rem;
+  align-items: start;
+}
+
+.stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.panelText {
+  margin: 0 0 1rem;
+}
+
+.canvasPanel {
+  min-height: 42rem;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.canvasShell {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.canvasFrame {
+  position: relative;
+  border: 1px solid var(--color-panel-border);
+  border-radius: 1rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.12)),
+    radial-gradient(circle at top left, rgba(46, 64, 54, 0.08), transparent 35%),
+    rgba(8, 12, 18, 0.92);
+  overflow: hidden;
+}
+
+.canvas {
+  display: block;
+  width: 100%;
+  height: min(68vh, 42rem);
+  cursor: crosshair;
+}
+
+.canvasPan {
+  cursor: grab;
+}
+
+.canvasDragging {
+  cursor: grabbing;
+}
+
+.canvasMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.toolButton {
+  color: var(--color-text);
+  background: rgba(128, 128, 128, 0.12);
+}
+
+.toolButtonActive {
+  color: var(--color-button-text);
+  background: var(--color-button-bg);
+}
+
+.miniGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+  gap: 0.75rem;
+}
+
+.featureLabel {
+  fill: #f4efe0;
+  font-size: 220px;
+  paint-order: stroke;
+  stroke: rgba(0, 0, 0, 0.45);
+  stroke-width: 45px;
+}
+
+.anchorLabel {
+  fill: #bfeadf;
+  font-size: 180px;
+  paint-order: stroke;
+  stroke: rgba(0, 0, 0, 0.55);
+  stroke-width: 40px;
+}
+
+.handle {
+  cursor: move;
+}
+
+.relatedList {
+  display: grid;
+  gap: 0.65rem;
+}
+
+@media (max-width: 1360px) {
+  .maps-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .canvas {
+    height: 34rem;
+  }
+}

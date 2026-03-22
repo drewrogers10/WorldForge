@@ -1,4 +1,5 @@
 import type { AppDatabase } from '@db/client';
+import type { StorageCoordinator } from '@backend/storage/types';
 import {
   createLocationRow,
   getLocationRecord,
@@ -157,7 +158,10 @@ function clearOpenLocationReferences(
     .run(systemNow, locationId);
 }
 
-export function createLocationService(db: AppDatabase) {
+export function createLocationService(
+  db: AppDatabase,
+  storageCoordinator: StorageCoordinator,
+) {
   return {
     listLocations(input?: { asOfTick?: number }): Location[] {
       const records =
@@ -198,67 +202,17 @@ export function createLocationService(db: AppDatabase) {
       const fields = normalizeLocationFields(input);
       const systemNow = Date.now();
 
-      const transaction = db.$client.transaction(() => {
-        const created = createLocationRow(db, {
-          ...fields,
-          existsFromTick: input.effectiveTick,
-          existsToTick: null,
-          createdAt: systemNow,
-          updatedAt: systemNow,
-        });
-
-        db.$client
-          .prepare(
-            `
-              INSERT INTO location_versions (
-                location_id,
-                valid_from,
-                valid_to,
-                name,
-                summary,
-                is_inferred,
-                created_at
-              ) VALUES (?, ?, NULL, ?, ?, 0, ?)
-            `,
-          )
-          .run(created.id, input.effectiveTick, fields.name, fields.summary, systemNow);
-
-        return created;
-      });
-
-      return toLocation(transaction());
-    },
-    updateLocation(input: UpdateLocationInput): Location {
-      assertLocationIsEditable(db, input.id);
-      const openVersion = assertForwardOnlyTick(
-        input.effectiveTick,
-        getOpenLocationVersion(db, input.id),
-        input.id,
-      );
-      const fields = normalizeLocationFields(input);
-      const systemNow = Date.now();
-
-      const transaction = db.$client.transaction(() => {
-        if (input.effectiveTick === openVersion.validFrom) {
-          db.$client
-            .prepare(
-              `
-                UPDATE location_versions
-                SET name = ?, summary = ?, is_inferred = 0, created_at = ?
-                WHERE id = ?
-              `,
-            )
-            .run(fields.name, fields.summary, systemNow, openVersion.id);
-        } else {
-          db.$client
-            .prepare(
-              `
-                UPDATE location_versions
-                SET valid_to = ?
-                WHERE id = ?
-              `,
-            )
-            .run(input.effectiveTick, openVersion.id);
+      return storageCoordinator.commitEntityMutation({
+        entityType: 'location',
+        tick: input.effectiveTick,
+        mutate: () => {
+          const created = createLocationRow(db, {
+            ...fields,
+            existsFromTick: input.effectiveTick,
+            existsToTick: null,
+            createdAt: systemNow,
+            updatedAt: systemNow,
+          });
 
           db.$client
             .prepare(
@@ -274,16 +228,78 @@ export function createLocationService(db: AppDatabase) {
                 ) VALUES (?, ?, NULL, ?, ?, 0, ?)
               `,
             )
-            .run(input.id, input.effectiveTick, fields.name, fields.summary, systemNow);
-        }
+            .run(created.id, input.effectiveTick, fields.name, fields.summary, systemNow);
 
-        return updateLocationRow(db, input.id, {
-          ...fields,
-          updatedAt: systemNow,
-        });
+          return {
+            entityId: created.id,
+            result: toLocation(created),
+          };
+        },
       });
+    },
+    updateLocation(input: UpdateLocationInput): Location {
+      assertLocationIsEditable(db, input.id);
+      const openVersion = assertForwardOnlyTick(
+        input.effectiveTick,
+        getOpenLocationVersion(db, input.id),
+        input.id,
+      );
+      const fields = normalizeLocationFields(input);
+      const systemNow = Date.now();
 
-      return toLocation(transaction());
+      return storageCoordinator.commitEntityMutation({
+        entityType: 'location',
+        tick: input.effectiveTick,
+        mutate: () => {
+          if (input.effectiveTick === openVersion.validFrom) {
+            db.$client
+              .prepare(
+                `
+                  UPDATE location_versions
+                  SET name = ?, summary = ?, is_inferred = 0, created_at = ?
+                  WHERE id = ?
+                `,
+              )
+              .run(fields.name, fields.summary, systemNow, openVersion.id);
+          } else {
+            db.$client
+              .prepare(
+                `
+                  UPDATE location_versions
+                  SET valid_to = ?
+                  WHERE id = ?
+                `,
+              )
+              .run(input.effectiveTick, openVersion.id);
+
+            db.$client
+              .prepare(
+                `
+                  INSERT INTO location_versions (
+                    location_id,
+                    valid_from,
+                    valid_to,
+                    name,
+                    summary,
+                    is_inferred,
+                    created_at
+                  ) VALUES (?, ?, NULL, ?, ?, 0, ?)
+                `,
+              )
+              .run(input.id, input.effectiveTick, fields.name, fields.summary, systemNow);
+          }
+
+          const updated = updateLocationRow(db, input.id, {
+            ...fields,
+            updatedAt: systemNow,
+          });
+
+          return {
+            entityId: input.id,
+            result: toLocation(updated),
+          };
+        },
+      });
     },
     deleteLocation(input: DeleteLocationInput): void {
       const location = assertLocationIsEditable(db, input.id);
@@ -307,26 +323,33 @@ export function createLocationService(db: AppDatabase) {
 
       const systemNow = Date.now();
 
-      const transaction = db.$client.transaction(() => {
-        db.$client
-          .prepare(
-            `
-              UPDATE location_versions
-              SET valid_to = ?
-              WHERE id = ?
-            `,
-          )
-          .run(input.effectiveTick, openVersion.id);
+      storageCoordinator.commitEntityMutation({
+        entityType: 'location',
+        tick: input.effectiveTick,
+        mutate: () => {
+          db.$client
+            .prepare(
+              `
+                UPDATE location_versions
+                SET valid_to = ?
+                WHERE id = ?
+              `,
+            )
+            .run(input.effectiveTick, openVersion.id);
 
-        clearOpenLocationReferences(db, input.id, input.effectiveTick, systemNow);
+          clearOpenLocationReferences(db, input.id, input.effectiveTick, systemNow);
 
-        updateLocationRow(db, input.id, {
-          existsToTick: input.effectiveTick,
-          updatedAt: systemNow,
-        });
+          updateLocationRow(db, input.id, {
+            existsToTick: input.effectiveTick,
+            updatedAt: systemNow,
+          });
+
+          return {
+            entityId: input.id,
+            result: undefined,
+          };
+        },
       });
-
-      transaction();
     },
   };
 }

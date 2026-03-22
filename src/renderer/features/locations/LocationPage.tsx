@@ -5,6 +5,7 @@ import { useTemporalStore } from '@renderer/store/temporalStore';
 import { useWorldStore } from '@renderer/store/worldStore';
 import { useEntityStore } from '@renderer/store/entityStore';
 import { useUiStore } from '@renderer/store/uiStore';
+import { EntityLinksPanel } from '@renderer/components/EntityLinksPanel';
 import type { TemporalDetailStatus } from '@shared/temporal';
 import type { Location } from '@shared/location';
 
@@ -121,6 +122,14 @@ export function LocationPage() {
       isLoadingLocations={isLoading}
       isUpdatingLocation={isUpdatingLocation}
       linkedItemCount={selectedLocationItemCount}
+      linksSlot={
+        <EntityLinksPanel
+          entityId={selectedLocationId}
+          entityKind="location"
+          emptyMessage="Select a place to manage its linked files."
+          title="Place Links"
+        />
+      }
       locations={locations}
       onCreateLocation={handleCreateLocation}
       onCreateLocationFormChange={(changes) => setCreateLocationForm(c => ({...c, ...changes}))}

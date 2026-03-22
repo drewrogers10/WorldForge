@@ -28,6 +28,44 @@ import {
   timelineAnchorSchema,
   timelineBoundsSchema,
 } from './temporal';
+import {
+  createEventInputSchema,
+  deleteEventInputSchema,
+  eventDetailSchema,
+  eventSchema,
+  getEventInputSchema,
+  listEventsInputSchema,
+  updateEventInputSchema,
+} from './event';
+import {
+  createEntityLinkInputSchema,
+  deleteEntityLinkInputSchema,
+  entityLinkSchema,
+  listEntityLinksInputSchema,
+  updateEntityLinkInputSchema,
+} from './entity-link';
+import {
+  createMapFeatureInputSchema,
+  createMapInputSchema,
+  deleteMapAnchorInputSchema,
+  deleteMapFeatureInputSchema,
+  getMapInputSchema,
+  listMapAnchorsInputSchema,
+  listMapFeaturesInputSchema,
+  mapAnchorSchema,
+  mapFeatureSchema,
+  mapSchema,
+  updateMapFeatureVersionInputSchema,
+  updateMapInputSchema,
+  upsertMapAnchorInputSchema,
+} from './map';
+import {
+  searchWorldInputSchema,
+  semanticSearchInputSchema,
+  storageHealthSchema,
+  storageOperationResultSchema,
+  worldSearchHitSchema,
+} from './storage';
 
 type IpcContract<TInput extends ZodTypeAny, TOutput extends ZodTypeAny> = {
   channel: string;
@@ -99,6 +137,70 @@ export const ipcContracts = {
   createItem: createContract('items:create', createItemInputSchema, itemSchema),
   updateItem: createContract('items:update', updateItemInputSchema, itemSchema),
   deleteItem: createContract('items:delete', deleteItemInputSchema, z.void()),
+  listEvents: createContract('events:list', listEventsInputSchema, z.array(eventSchema)),
+  getEvent: createContract('events:get', getEventInputSchema, eventDetailSchema),
+  createEvent: createContract('events:create', createEventInputSchema, eventSchema),
+  updateEvent: createContract('events:update', updateEventInputSchema, eventSchema),
+  deleteEvent: createContract('events:delete', deleteEventInputSchema, z.void()),
+  listMaps: createContract('maps:list', z.void(), z.array(mapSchema)),
+  getMap: createContract('maps:get', getMapInputSchema, mapSchema.nullable()),
+  createMap: createContract('maps:create', createMapInputSchema, mapSchema),
+  updateMap: createContract('maps:update', updateMapInputSchema, mapSchema),
+  listMapFeatures: createContract(
+    'maps:features:list',
+    listMapFeaturesInputSchema,
+    z.array(mapFeatureSchema),
+  ),
+  createMapFeature: createContract(
+    'maps:features:create',
+    createMapFeatureInputSchema,
+    mapFeatureSchema,
+  ),
+  updateMapFeatureVersion: createContract(
+    'maps:features:update',
+    updateMapFeatureVersionInputSchema,
+    mapFeatureSchema,
+  ),
+  deleteMapFeature: createContract(
+    'maps:features:delete',
+    deleteMapFeatureInputSchema,
+    z.void(),
+  ),
+  listMapAnchors: createContract(
+    'maps:anchors:list',
+    listMapAnchorsInputSchema,
+    z.array(mapAnchorSchema),
+  ),
+  upsertMapAnchor: createContract(
+    'maps:anchors:upsert',
+    upsertMapAnchorInputSchema,
+    mapAnchorSchema,
+  ),
+  deleteMapAnchor: createContract(
+    'maps:anchors:delete',
+    deleteMapAnchorInputSchema,
+    z.void(),
+  ),
+  listEntityLinks: createContract(
+    'links:list',
+    listEntityLinksInputSchema,
+    z.array(entityLinkSchema),
+  ),
+  createEntityLink: createContract(
+    'links:create',
+    createEntityLinkInputSchema,
+    entityLinkSchema,
+  ),
+  updateEntityLink: createContract(
+    'links:update',
+    updateEntityLinkInputSchema,
+    entityLinkSchema,
+  ),
+  deleteEntityLink: createContract(
+    'links:delete',
+    deleteEntityLinkInputSchema,
+    z.void(),
+  ),
   getTimelineBounds: createContract(
     'timeline:bounds',
     z.void(),
@@ -108,6 +210,31 @@ export const ipcContracts = {
     'timeline:anchors',
     z.void(),
     z.array(timelineAnchorSchema),
+  ),
+  searchWorld: createContract(
+    'search:world',
+    searchWorldInputSchema,
+    z.array(worldSearchHitSchema),
+  ),
+  semanticSearch: createContract(
+    'search:semantic',
+    semanticSearchInputSchema,
+    z.array(worldSearchHitSchema),
+  ),
+  rebuildIndexes: createContract(
+    'storage:rebuild-indexes',
+    z.void(),
+    storageOperationResultSchema,
+  ),
+  importMarkdownChanges: createContract(
+    'storage:import-markdown',
+    z.void(),
+    storageOperationResultSchema,
+  ),
+  getStorageHealth: createContract(
+    'storage:health',
+    z.void(),
+    storageHealthSchema,
   ),
 } as const;
 

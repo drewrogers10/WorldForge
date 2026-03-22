@@ -1,4 +1,5 @@
 import type { AppDatabase } from '@db/client';
+import type { StorageCoordinator } from '@backend/storage/types';
 import {
   createCharacterRow,
   getCharacterRow,
@@ -250,7 +251,10 @@ function retireOwnedItemsAtTick(
     .run(systemNow, characterId);
 }
 
-export function createCharacterService(db: AppDatabase) {
+export function createCharacterService(
+  db: AppDatabase,
+  storageCoordinator: StorageCoordinator,
+) {
   return {
     listCharacters(input?: { asOfTick?: number }): Character[] {
       const records =
@@ -292,85 +296,17 @@ export function createCharacterService(db: AppDatabase) {
       assertLocationActiveAtTick(db, input.locationId, input.effectiveTick);
       const fields = normalizeCharacterFields(input);
 
-      const transaction = db.$client.transaction(() => {
-        const created = createCharacterRow(db, {
-          ...fields,
-          existsFromTick: input.effectiveTick,
-          existsToTick: null,
-          createdAt: systemNow,
-          updatedAt: systemNow,
-        });
-
-        db.$client
-          .prepare(
-            `
-              INSERT INTO character_versions (
-                character_id,
-                valid_from,
-                valid_to,
-                name,
-                summary,
-                is_inferred,
-                created_at
-              ) VALUES (?, ?, NULL, ?, ?, 0, ?)
-            `,
-          )
-          .run(created.id, input.effectiveTick, fields.name, fields.summary, systemNow);
-
-        if (fields.locationId !== null) {
-          db.$client
-            .prepare(
-              `
-                INSERT INTO character_location_spans (
-                  character_id,
-                  location_id,
-                  valid_from,
-                  valid_to,
-                  is_inferred,
-                  created_at
-                ) VALUES (?, ?, ?, NULL, 0, ?)
-              `,
-            )
-            .run(created.id, fields.locationId, input.effectiveTick, systemNow);
-        }
-
-        return created;
-      });
-
-      return toCharacter(transaction());
-    },
-    updateCharacter(input: UpdateCharacterInput): Character {
-      assertCharacterIsEditable(getCharacterRow(db, input.id));
-      const openVersion = assertForwardOnlyTick(
-        input.effectiveTick,
-        getOpenCharacterVersion(db, input.id),
-        input.id,
-      );
-      assertLocationActiveAtTick(db, input.locationId, input.effectiveTick);
-      const fields = normalizeCharacterFields(input);
-      const systemNow = Date.now();
-
-      const transaction = db.$client.transaction(() => {
-        if (input.effectiveTick === openVersion.validFrom) {
-          db.$client
-            .prepare(
-              `
-                UPDATE character_versions
-                SET name = ?, summary = ?, is_inferred = 0, created_at = ?
-                WHERE id = ?
-              `,
-            )
-            .run(fields.name, fields.summary, systemNow, openVersion.id);
-        } else {
-          db.$client
-            .prepare(
-              `
-                UPDATE character_versions
-                SET valid_to = ?
-                WHERE id = ?
-              `,
-            )
-            .run(input.effectiveTick, openVersion.id);
+      return storageCoordinator.commitEntityMutation({
+        entityType: 'character',
+        tick: input.effectiveTick,
+        mutate: () => {
+          const created = createCharacterRow(db, {
+            ...fields,
+            existsFromTick: input.effectiveTick,
+            existsToTick: null,
+            createdAt: systemNow,
+            updatedAt: systemNow,
+          });
 
           db.$client
             .prepare(
@@ -386,23 +322,103 @@ export function createCharacterService(db: AppDatabase) {
                 ) VALUES (?, ?, NULL, ?, ?, 0, ?)
               `,
             )
-            .run(input.id, input.effectiveTick, fields.name, fields.summary, systemNow);
-        }
+            .run(created.id, input.effectiveTick, fields.name, fields.summary, systemNow);
 
-        syncCharacterLocationAtTick(db, {
-          characterId: input.id,
-          locationId: fields.locationId,
-          tick: input.effectiveTick,
-          systemNow,
-        });
+          if (fields.locationId !== null) {
+            db.$client
+              .prepare(
+                `
+                  INSERT INTO character_location_spans (
+                    character_id,
+                    location_id,
+                    valid_from,
+                    valid_to,
+                    is_inferred,
+                    created_at
+                  ) VALUES (?, ?, ?, NULL, 0, ?)
+                `,
+              )
+              .run(created.id, fields.locationId, input.effectiveTick, systemNow);
+          }
 
-        return updateCharacterRow(db, input.id, {
-          ...fields,
-          updatedAt: systemNow,
-        });
+          return {
+            entityId: created.id,
+            result: toCharacter(created),
+          };
+        },
       });
+    },
+    updateCharacter(input: UpdateCharacterInput): Character {
+      assertCharacterIsEditable(getCharacterRow(db, input.id));
+      const openVersion = assertForwardOnlyTick(
+        input.effectiveTick,
+        getOpenCharacterVersion(db, input.id),
+        input.id,
+      );
+      assertLocationActiveAtTick(db, input.locationId, input.effectiveTick);
+      const fields = normalizeCharacterFields(input);
+      const systemNow = Date.now();
 
-      return toCharacter(transaction());
+      return storageCoordinator.commitEntityMutation({
+        entityType: 'character',
+        tick: input.effectiveTick,
+        mutate: () => {
+          if (input.effectiveTick === openVersion.validFrom) {
+            db.$client
+              .prepare(
+                `
+                  UPDATE character_versions
+                  SET name = ?, summary = ?, is_inferred = 0, created_at = ?
+                  WHERE id = ?
+                `,
+              )
+              .run(fields.name, fields.summary, systemNow, openVersion.id);
+          } else {
+            db.$client
+              .prepare(
+                `
+                  UPDATE character_versions
+                  SET valid_to = ?
+                  WHERE id = ?
+                `,
+              )
+              .run(input.effectiveTick, openVersion.id);
+
+            db.$client
+              .prepare(
+                `
+                  INSERT INTO character_versions (
+                    character_id,
+                    valid_from,
+                    valid_to,
+                    name,
+                    summary,
+                    is_inferred,
+                    created_at
+                  ) VALUES (?, ?, NULL, ?, ?, 0, ?)
+                `,
+              )
+              .run(input.id, input.effectiveTick, fields.name, fields.summary, systemNow);
+          }
+
+          syncCharacterLocationAtTick(db, {
+            characterId: input.id,
+            locationId: fields.locationId,
+            tick: input.effectiveTick,
+            systemNow,
+          });
+
+          const updated = updateCharacterRow(db, input.id, {
+            ...fields,
+            updatedAt: systemNow,
+          });
+
+          return {
+            entityId: input.id,
+            result: toCharacter(updated),
+          };
+        },
+      });
     },
     deleteCharacter(input: DeleteCharacterInput): void {
       const existing = assertCharacterIsEditable(getCharacterRow(db, input.id));
@@ -426,41 +442,48 @@ export function createCharacterService(db: AppDatabase) {
 
       const systemNow = Date.now();
 
-      const transaction = db.$client.transaction(() => {
-        db.$client
-          .prepare(
-            `
-              UPDATE character_versions
-              SET valid_to = ?
-              WHERE id = ?
-            `,
-          )
-          .run(input.effectiveTick, openVersion.id);
-
-        const openSpan = getOpenCharacterLocationSpan(db, input.id);
-
-        if (openSpan) {
+      storageCoordinator.commitEntityMutation({
+        entityType: 'character',
+        tick: input.effectiveTick,
+        mutate: () => {
           db.$client
             .prepare(
               `
-                UPDATE character_location_spans
+                UPDATE character_versions
                 SET valid_to = ?
                 WHERE id = ?
               `,
             )
-            .run(input.effectiveTick, openSpan.id);
-        }
+            .run(input.effectiveTick, openVersion.id);
 
-        retireOwnedItemsAtTick(db, input.id, input.effectiveTick, systemNow);
+          const openSpan = getOpenCharacterLocationSpan(db, input.id);
 
-        updateCharacterRow(db, input.id, {
-          locationId: null,
-          existsToTick: input.effectiveTick,
-          updatedAt: systemNow,
-        });
+          if (openSpan) {
+            db.$client
+              .prepare(
+                `
+                  UPDATE character_location_spans
+                  SET valid_to = ?
+                  WHERE id = ?
+                `,
+              )
+              .run(input.effectiveTick, openSpan.id);
+          }
+
+          retireOwnedItemsAtTick(db, input.id, input.effectiveTick, systemNow);
+
+          updateCharacterRow(db, input.id, {
+            locationId: null,
+            existsToTick: input.effectiveTick,
+            updatedAt: systemNow,
+          });
+
+          return {
+            entityId: input.id,
+            result: undefined,
+          };
+        },
       });
-
-      transaction();
     },
   };
 }

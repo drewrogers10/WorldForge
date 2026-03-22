@@ -12,6 +12,7 @@ export function createTestDatabaseContext() {
   runMigrations(db, path.resolve(process.cwd(), 'drizzle'));
 
   return {
+    directory,
     client,
     db,
     cleanup(): void {

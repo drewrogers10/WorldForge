@@ -1,4 +1,5 @@
 import type { AppDatabase } from '@db/client';
+import type { StorageCoordinator } from '@backend/storage/types';
 import {
   createItemRow,
   getItemRow,
@@ -290,7 +291,10 @@ function syncItemAssignmentAtTick(
   }
 }
 
-export function createItemService(db: AppDatabase) {
+export function createItemService(
+  db: AppDatabase,
+  storageCoordinator: StorageCoordinator,
+) {
   return {
     listItems(input?: { asOfTick?: number }): Item[] {
       const records =
@@ -335,103 +339,17 @@ export function createItemService(db: AppDatabase) {
 
       const fields = normalizeItemFields(input);
 
-      const transaction = db.$client.transaction(() => {
-        const created = createItemRow(db, {
-          ...fields,
-          existsFromTick: input.effectiveTick,
-          existsToTick: null,
-          createdAt: systemNow,
-          updatedAt: systemNow,
-        });
-
-        db.$client
-          .prepare(
-            `
-              INSERT INTO item_versions (
-                item_id,
-                valid_from,
-                valid_to,
-                name,
-                summary,
-                quantity,
-                is_inferred,
-                created_at
-              ) VALUES (?, ?, NULL, ?, ?, ?, 0, ?)
-            `,
-          )
-          .run(
-            created.id,
-            input.effectiveTick,
-            fields.name,
-            fields.summary,
-            fields.quantity,
-            systemNow,
-          );
-
-        if (fields.ownerCharacterId !== null || fields.locationId !== null) {
-          db.$client
-            .prepare(
-              `
-                INSERT INTO item_assignment_spans (
-                  item_id,
-                  owner_character_id,
-                  location_id,
-                  valid_from,
-                  valid_to,
-                  is_inferred,
-                  created_at
-                ) VALUES (?, ?, ?, ?, NULL, 0, ?)
-              `,
-            )
-            .run(
-              created.id,
-              fields.ownerCharacterId,
-              fields.locationId,
-              input.effectiveTick,
-              systemNow,
-            );
-        }
-
-        return created;
-      });
-
-      return toItem(transaction());
-    },
-    updateItem(input: UpdateItemInput): Item {
-      assertItemIsEditable(getItemRow(db, input.id));
-      const openVersion = assertForwardOnlyTick(
-        input.effectiveTick,
-        getOpenItemVersion(db, input.id),
-        input.id,
-      );
-      const fields = normalizeItemFields(input);
-
-      assertSingleAssignment(fields);
-      assertReferencedEntitiesActiveAtTick(db, fields, input.effectiveTick);
-
-      const systemNow = Date.now();
-
-      const transaction = db.$client.transaction(() => {
-        if (input.effectiveTick === openVersion.validFrom) {
-          db.$client
-            .prepare(
-              `
-                UPDATE item_versions
-                SET name = ?, summary = ?, quantity = ?, is_inferred = 0, created_at = ?
-                WHERE id = ?
-              `,
-            )
-            .run(fields.name, fields.summary, fields.quantity, systemNow, openVersion.id);
-        } else {
-          db.$client
-            .prepare(
-              `
-                UPDATE item_versions
-                SET valid_to = ?
-                WHERE id = ?
-              `,
-            )
-            .run(input.effectiveTick, openVersion.id);
+      return storageCoordinator.commitEntityMutation({
+        entityType: 'item',
+        tick: input.effectiveTick,
+        mutate: () => {
+          const created = createItemRow(db, {
+            ...fields,
+            existsFromTick: input.effectiveTick,
+            existsToTick: null,
+            createdAt: systemNow,
+            updatedAt: systemNow,
+          });
 
           db.$client
             .prepare(
@@ -449,30 +367,128 @@ export function createItemService(db: AppDatabase) {
               `,
             )
             .run(
-              input.id,
+              created.id,
               input.effectiveTick,
               fields.name,
               fields.summary,
               fields.quantity,
               systemNow,
             );
-        }
 
-        syncItemAssignmentAtTick(db, {
-          itemId: input.id,
-          ownerCharacterId: fields.ownerCharacterId,
-          locationId: fields.locationId,
-          tick: input.effectiveTick,
-          systemNow,
-        });
+          if (fields.ownerCharacterId !== null || fields.locationId !== null) {
+            db.$client
+              .prepare(
+                `
+                  INSERT INTO item_assignment_spans (
+                    item_id,
+                    owner_character_id,
+                    location_id,
+                    valid_from,
+                    valid_to,
+                    is_inferred,
+                    created_at
+                  ) VALUES (?, ?, ?, ?, NULL, 0, ?)
+                `,
+              )
+              .run(
+                created.id,
+                fields.ownerCharacterId,
+                fields.locationId,
+                input.effectiveTick,
+                systemNow,
+              );
+          }
 
-        return updateItemRow(db, input.id, {
-          ...fields,
-          updatedAt: systemNow,
-        });
+          return {
+            entityId: created.id,
+            result: toItem(created),
+          };
+        },
       });
+    },
+    updateItem(input: UpdateItemInput): Item {
+      assertItemIsEditable(getItemRow(db, input.id));
+      const openVersion = assertForwardOnlyTick(
+        input.effectiveTick,
+        getOpenItemVersion(db, input.id),
+        input.id,
+      );
+      const fields = normalizeItemFields(input);
 
-      return toItem(transaction());
+      assertSingleAssignment(fields);
+      assertReferencedEntitiesActiveAtTick(db, fields, input.effectiveTick);
+
+      const systemNow = Date.now();
+
+      return storageCoordinator.commitEntityMutation({
+        entityType: 'item',
+        tick: input.effectiveTick,
+        mutate: () => {
+          if (input.effectiveTick === openVersion.validFrom) {
+            db.$client
+              .prepare(
+                `
+                  UPDATE item_versions
+                  SET name = ?, summary = ?, quantity = ?, is_inferred = 0, created_at = ?
+                  WHERE id = ?
+                `,
+              )
+              .run(fields.name, fields.summary, fields.quantity, systemNow, openVersion.id);
+          } else {
+            db.$client
+              .prepare(
+                `
+                  UPDATE item_versions
+                  SET valid_to = ?
+                  WHERE id = ?
+                `,
+              )
+              .run(input.effectiveTick, openVersion.id);
+
+            db.$client
+              .prepare(
+                `
+                  INSERT INTO item_versions (
+                    item_id,
+                    valid_from,
+                    valid_to,
+                    name,
+                    summary,
+                    quantity,
+                    is_inferred,
+                    created_at
+                  ) VALUES (?, ?, NULL, ?, ?, ?, 0, ?)
+                `,
+              )
+              .run(
+                input.id,
+                input.effectiveTick,
+                fields.name,
+                fields.summary,
+                fields.quantity,
+                systemNow,
+              );
+          }
+
+          syncItemAssignmentAtTick(db, {
+            itemId: input.id,
+            ownerCharacterId: fields.ownerCharacterId,
+            locationId: fields.locationId,
+            tick: input.effectiveTick,
+            systemNow,
+          });
+
+          const updated = updateItemRow(db, input.id, {
+            ...fields,
+            updatedAt: systemNow,
+          });
+
+          return {
+            entityId: input.id,
+            result: toItem(updated),
+          };
+        },
+      });
     },
     deleteItem(input: DeleteItemInput): void {
       const existing = assertItemIsEditable(getItemRow(db, input.id));
@@ -496,40 +512,47 @@ export function createItemService(db: AppDatabase) {
 
       const systemNow = Date.now();
 
-      const transaction = db.$client.transaction(() => {
-        db.$client
-          .prepare(
-            `
-              UPDATE item_versions
-              SET valid_to = ?
-              WHERE id = ?
-            `,
-          )
-          .run(input.effectiveTick, openVersion.id);
-
-        const openAssignment = getOpenItemAssignment(db, input.id);
-
-        if (openAssignment) {
+      storageCoordinator.commitEntityMutation({
+        entityType: 'item',
+        tick: input.effectiveTick,
+        mutate: () => {
           db.$client
             .prepare(
               `
-                UPDATE item_assignment_spans
+                UPDATE item_versions
                 SET valid_to = ?
                 WHERE id = ?
               `,
             )
-            .run(input.effectiveTick, openAssignment.id);
-        }
+            .run(input.effectiveTick, openVersion.id);
 
-        updateItemRow(db, input.id, {
-          ownerCharacterId: null,
-          locationId: null,
-          existsToTick: input.effectiveTick,
-          updatedAt: systemNow,
-        });
+          const openAssignment = getOpenItemAssignment(db, input.id);
+
+          if (openAssignment) {
+            db.$client
+              .prepare(
+                `
+                  UPDATE item_assignment_spans
+                  SET valid_to = ?
+                  WHERE id = ?
+                `,
+              )
+              .run(input.effectiveTick, openAssignment.id);
+          }
+
+          updateItemRow(db, input.id, {
+            ownerCharacterId: null,
+            locationId: null,
+            existsToTick: input.effectiveTick,
+            updatedAt: systemNow,
+          });
+
+          return {
+            entityId: input.id,
+            result: undefined,
+          };
+        },
       });
-
-      transaction();
     },
   };
 }
